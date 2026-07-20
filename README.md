@@ -10,7 +10,7 @@ I want a simple CLI tool which tracks when I last talked to my friends which doe
 > This tool supports Linux only. macOS/BSD/Windows are unsupported.
 
 ```bash
-git clone <url> ~/Documents/Development/com.kevincojean.cli-friendkeeper
+git clone git@github.com:kevincojean/cli-friendkeeper.git ~/Documents/Development/com.kevincojean.cli-friendkeeper
 cd ~/Documents/Development/com.kevincojean.cli-friendkeeper
 ./install.sh
 # Installed: ~/.local/bin/friend
