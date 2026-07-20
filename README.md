@@ -1,10 +1,13 @@
 # friend — stay in touch with the people who matter
 
-> This tool supports Linux only. macOS/BSD/Windows are unsupported.
+friend is a personal CLI tool that helps you maintain relationships by tracking who you want to stay in touch with, how often, and when you last reached out.
 
-friend is a personal CLI tool that helps you maintain relationships by tracking who you want to stay in touch with, how often, and when you last reached out. It stores contacts in JSONL files, uses POSIX file locks for concurrency safety, and runs entirely offline.
+## Rationale
+I want a simple CLI tool which tracks when I last talked to my friends which doesn't rely on hosting anything, or on an external protocol.
 
 ## Install
+
+> This tool supports Linux only. macOS/BSD/Windows are unsupported.
 
 ```bash
 git clone <url> ~/Documents/Development/com.kevincojean.cli-friendkeeper
@@ -47,3 +50,6 @@ friend remove alice --force
 ## Concurrency
 
 All state mutations are serialized via POSIX file locks (`flock`). This prevents data corruption when running multiple `friend` instances concurrently.
+
+## Credit
+API inspired by https://github.com/justinabrahms/frm
