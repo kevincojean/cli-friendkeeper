@@ -8,14 +8,14 @@ def data_dir() -> Path:
     cache = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
     path = cache / APP_DIR
     path.mkdir(parents=True, exist_ok=True)
-    return path
+    return path.resolve()
 
 
 def config_dir() -> Path:
     config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     path = config / APP_DIR
     path.mkdir(parents=True, exist_ok=True)
-    return path
+    return path.resolve()
 
 
 def data_file(name: str) -> Path:

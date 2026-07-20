@@ -78,6 +78,19 @@ class TestWriteJsonlAtomic:
         write_jsonl_atomic(path, [{"new": "data"}])
         assert read_jsonl(path) == [{"new": "data"}]
 
+    def test_given_symlink_file_when_writing_atomically_then_preserves_symlink(
+        self, tmp_path: Path,
+    ) -> None:
+        target = tmp_path / "real.jsonl"
+        target.write_text('{"original": true}\n')
+        link = tmp_path / "link.jsonl"
+        link.symlink_to(target)
+        write_jsonl_atomic(link, [{"new": "data"}])
+        assert link.is_symlink()
+        assert link.resolve() == target.resolve()
+        assert read_jsonl(target) == [{"new": "data"}]
+        assert read_jsonl(link) == [{"new": "data"}]
+
 
 class TestFlockExclusive:
     def test_given_lock_when_acquiring_then_releases(self, tmp_path: Path) -> None:

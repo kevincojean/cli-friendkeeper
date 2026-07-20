@@ -28,7 +28,7 @@ class ContactRepo:
 
     @property
     def _contacts_path(self) -> Path:
-        return self._data_dir / "contacts.jsonl"
+        return self._data_dir / "friends.jsonl"
 
     def _read_contacts(self) -> list[Contact]:
         raw = self._store.read_jsonl(self._contacts_path)

@@ -17,6 +17,20 @@ class TestDataDir:
         assert result == tmp_path / ".cache" / APP_DIR
         assert result.is_dir()
 
+    def test_given_cache_home_is_symlink_when_calling_data_dir_then_returns_resolved_path(
+        self, monkeypatch, tmp_path,
+    ) -> None:
+        real_cache = tmp_path / "realcache"
+        real_cache.mkdir()
+        link_cache = tmp_path / "linkcache"
+        link_cache.symlink_to(real_cache)
+        monkeypatch.setenv("XDG_CACHE_HOME", str(link_cache))
+        result = data_dir()
+        assert result == (real_cache / APP_DIR).resolve()
+        assert result.is_dir()
+        # data dir was created inside the real target, not under the symlink
+        assert result.parent == (real_cache / "com.kevincojean").resolve()
+
 
 class TestConfigDir:
     def test_given_xdg_config_home_set_when_calling_config_dir_then_uses_env(self, monkeypatch, tmp_path):
@@ -36,8 +50,8 @@ class TestConfigDir:
 class TestDataFile:
     def test_given_data_dir_when_getting_data_file_then_returns_path_under_it(self, monkeypatch, tmp_path):
         monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
-        result = data_file("contacts.jsonl")
-        assert result == data_dir() / "contacts.jsonl"
+        result = data_file("friends.jsonl")
+        assert result == data_dir() / "friends.jsonl"
         # parent dir was created by data_dir() call
         assert result.parent.is_dir()
 

@@ -3,7 +3,7 @@
 Usage:
     friend remove <name> [--force]
 
-Removes *name* from contacts.jsonl and records a tombstone in state.jsonl.
+Removes *name* from friends.jsonl and records a tombstone in state.jsonl.
 Without ``--force`` the user is prompted for confirmation.
 """
 

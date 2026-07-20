@@ -63,14 +63,18 @@ def write_jsonl_atomic(path: Path, records: list[dict]) -> None:
 
     Writes to a ``.tmp`` sibling, then uses :func:`os.replace` for an
     atomic swap so that concurrent readers always see a consistent file.
+
+    If *path* is a symlink the target is resolved first so that the
+    symlink itself is preserved rather than replaced with a regular file.
     """
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    real = path.resolve()
+    tmp = real.with_suffix(real.suffix + ".tmp")
     with tmp.open("w") as f:
         for record in records:
             f.write(json.dumps(record) + "\n")
         f.flush()
         os.fsync(f.fileno())
-    os.replace(tmp, path)
+    os.replace(tmp, real)
 
 
 @contextmanager
