@@ -11,6 +11,7 @@ I want a simple CLI tool which tracks when I last talked to my friends which doe
 
 ```bash
 git clone git@github.com:kevincojean/cli-friendkeeper.git
+cd cli-friendkeeper
 ./install.sh
 ```
 
