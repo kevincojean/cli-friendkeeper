@@ -107,7 +107,7 @@ class TestE2E:
 
     def test_given_deleted_state_file_when_rebuild_state_then_list_shows_contact(self, tmp_path: Path) -> None:
         env = _env(tmp_path)
-        data_dir = tmp_path / "cache" / "com.kevincojean" / "cli-tools-friend"
+        data_dir = tmp_path / "cache" / "com.kevincojean.cli-friendkeeper"
 
         r = _cli("add", "--name", "Dave", "--email", "dave@example.com", env=env)
         assert r.returncode == 0, r.stderr

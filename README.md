@@ -42,8 +42,8 @@ friend remove alice --force
 
 ## Data & Config
 
-- **Data**: `~/.cache/com.kevincojean/cli-tools-friend/` (or `$XDG_CACHE_HOME`)
-- **Config**: `~/.config/com.kevincojean/cli-tools-friend/config.json` (or `$XDG_CONFIG_HOME`)
+- **Data**: `~/.cache/com.kevincojean.cli-friendkeeper/` (or `$XDG_CACHE_HOME`)
+- **Config**: `~/.config/com.kevincojean.cli-friendkeeper/config.json` (or `$XDG_CONFIG_HOME`)
 - Config overrides default cadences: `friend config-set cadence.deep 7`
 
 ## Concurrency

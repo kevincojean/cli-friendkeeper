@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-APP_DIR = "com.kevincojean/cli-tools-friend"
+APP_DIR = "com.kevincojean.cli-friendkeeper"
 
 
 def data_dir() -> Path:

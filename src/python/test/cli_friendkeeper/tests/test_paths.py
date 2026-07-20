@@ -28,8 +28,6 @@ class TestDataDir:
         result = data_dir()
         assert result == (real_cache / APP_DIR).resolve()
         assert result.is_dir()
-        # data dir was created inside the real target, not under the symlink
-        assert result.parent == (real_cache / "com.kevincojean").resolve()
 
 
 class TestConfigDir:

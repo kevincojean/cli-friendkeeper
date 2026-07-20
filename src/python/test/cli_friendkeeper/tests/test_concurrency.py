@@ -47,7 +47,7 @@ def _env(tmp_path: Path) -> dict[str, str]:
 
 def _data_dir(tmp_path: Path) -> Path:
     """Return the data directory within an isolated tmp_path."""
-    return tmp_path / "cache" / "com.kevincojean" / "cli-tools-friend"
+    return tmp_path / "cache" / "com.kevincojean.cli-friendkeeper"
 
 
 class TestConcurrency:

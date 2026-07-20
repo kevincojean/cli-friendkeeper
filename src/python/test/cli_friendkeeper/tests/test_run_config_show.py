@@ -51,7 +51,7 @@ class TestRunConfigShow:
 
         custom = {"deep": 3, "casual": 10, "network": 60}
         config_path = (
-            config_dir / "com.kevincojean" / "cli-tools-friend" / "config.json"
+            config_dir / "com.kevincojean.cli-friendkeeper" / "config.json"
         )
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps({"cadence": custom}) + "\n")

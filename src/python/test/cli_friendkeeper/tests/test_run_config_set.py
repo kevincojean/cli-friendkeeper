@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from _pytest.capture import CaptureFixture
     from _pytest.monkeypatch import MonkeyPatch
 
-CONFIG_DIR_REL = "com.kevincojean/cli-tools-friend"
+CONFIG_DIR_REL = "com.kevincojean.cli-friendkeeper"
 CONFIG_FILE_REL = f"{CONFIG_DIR_REL}/config.json"
 
 
