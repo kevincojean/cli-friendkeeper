@@ -79,3 +79,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ctx = build_context()
     return module.run(sub_args, ctx)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
