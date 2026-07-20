@@ -2,15 +2,23 @@
 set -euo pipefail
 PREFIX="${PREFIX:-${1:-$HOME/.local}}"
 BIN_NAME="${BIN_NAME:-${BUILD_NAME:-friend}}"
-REAL_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-CWRAPPER="$REAL_DIR/ccli"
+REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
-if [ ! -f "$CWRAPPER" ]; then
-    echo "ERROR: ccli not found at $CWRAPPER. Run task T2 first." >&2
+if [ ! -f "$REPO_DIR/ccli" ]; then
+    echo "ERROR: ccli not found in $REPO_DIR. Are you running install.sh from the repo root?" >&2
     exit 1
 fi
 
 mkdir -p "$PREFIX/bin"
-cp "$CWRAPPER" "$PREFIX/bin/$BIN_NAME"
+
+cat > "$PREFIX/bin/$BIN_NAME" << EOF
+#!/usr/bin/env bash
+set -euo pipefail
+REPO_DIR="$REPO_DIR"
+PYTHONPATH="\$REPO_DIR/src/python/main"
+export PYTHONPATH
+exec uv run --project "\$REPO_DIR" python -m cli_friendkeeper.ccli.ccli "\$@"
+EOF
+
 chmod +x "$PREFIX/bin/$BIN_NAME"
 echo "Installed: $PREFIX/bin/$BIN_NAME"
