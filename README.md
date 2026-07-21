@@ -125,6 +125,55 @@ friend-touch-fzf() {
 - Config overrides default cadences: `friend config-set cadence.deep 7`
 - Config overrides default snooze: `friend config-set snooze.deep 14`
 
+### Full default config
+
+Dot separates the domain from the sub-key (e.g. `cadence.deep`). Keys without a dot are global settings. Old-style nested `{"cadence": {"deep": 15}}` is also accepted for backward compatibility, but saving always writes the flat format.
+
+```json
+{
+  "cadence.deep": 15,
+  "cadence.casual": 45,
+  "cadence.network": 180,
+  "cadence.acquaintance": 0,
+  "snooze.deep": 7,
+  "snooze.casual": 15,
+  "snooze.network": 30,
+  "snooze.acquaintance": 90,
+  "default_priority": "casual",
+  "default_subcommand": "due",
+  "list.priority_order": ["acquaintance", "network", "casual", "deep"],
+  "list.hide_acquaintances": true,
+  "list.sort_priority": "asc",
+  "list.sort_due_date": "desc",
+  "list.columns": ["id", "name", "priority", "last_touched", "due_date"]
+}
+```
+
+| Key | Domain | Default | Description |
+|-----|--------|---------|-------------|
+| `cadence.{priority}` | `cadence` | 15/45/180/0 | Per-priority cadence in days |
+| `snooze.{priority}` | `snooze` | 7/15/30/90 | Per-priority snooze defaults (days) |
+| `default_priority` | _(global)_ | `"casual"` | Priority used when `--priority` is omitted on `add` |
+| `default_subcommand` | _(global)_ | `"due"` | Subcommand dispatched when no subcommand is given |
+| `list.priority_order` | `list` | list above | Display order for priority groups in `list` |
+| `list.hide_acquaintances` | `list` | `true` | Hide acquaintance-priority contacts from `list` by default |
+| `list.sort_priority` | `list` | `"asc"` | Sort direction for priority groups (`"asc"` or `"desc"`) |
+| `list.sort_due_date` | `list` | `"desc"` | Sort direction for due date within each group (`"asc"` or `"desc"`) |
+| `list.columns` | `list` | list above | Columns shown in the `list` table (see below) |
+
+Available columns for `list.columns`: `id`, `name`, `priority`, `last_touched`, `due_date`, `days_since`, `cadence`, `removed`, `notes`, `email`, `phone`.
+
+At least one `cadence.*` key (or the old nested `cadence` object) is required. All other keys can be omitted — missing keys fall back to defaults.
+
+Set values with `friend config-set`:
+
+```
+friend config-set cadence.deep 7
+friend config-set list.columns id,name,due_date
+friend config-set list.hide_acquaintances true
+friend config-set list.priority_order deep,casual,network,acquaintance
+```
+
 ## Concurrency
 
 All state mutations are serialized via POSIX file locks (`flock`). This prevents data corruption when running multiple `friend` instances concurrently.

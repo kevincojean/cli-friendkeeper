@@ -77,6 +77,15 @@ class Config:
             self.list_columns = list(DEFAULT_LIST_COLUMNS)
 
 
+def _flat_or_raw(raw: dict[str, Any], flat_key: str, legacy_key: str) -> Any:
+    """Read *flat_key* (dot notation) falling back to *legacy_key* (underscore)."""
+    if flat_key in raw:
+        return raw[flat_key]
+    if legacy_key in raw:
+        return raw[legacy_key]
+    return None
+
+
 def load_config(path: Path | None = None) -> Config:
     if path is None:
         path = config_file()
@@ -99,16 +108,40 @@ def load_config(path: Path | None = None) -> Config:
             f"{path}: invalid default_subcommand {default_subcommand!r}; "
             f"valid: {', '.join(sorted(VALID_SUBCOMMANDS))}"
         )
+
+    # Extract cadence: nested (old) or cadence.<prio> (new)
+    cadence = dict(raw.get("cadence", {})) if isinstance(raw.get("cadence"), dict) else {}
+    for key, val in raw.items():
+        if key.startswith("cadence."):
+            prio = key[len("cadence."):]
+            if prio in VALID_PRIORITIES:
+                cadence[prio] = val
+
+    # Extract snooze: nested (old) or snooze.<prio> (new)
+    snooze = dict(raw.get("snooze", {})) if isinstance(raw.get("snooze"), dict) else {}
+    for key, val in raw.items():
+        if key.startswith("snooze."):
+            prio = key[len("snooze."):]
+            if prio in VALID_PRIORITIES:
+                snooze[prio] = val
+
+    # Extract flat list.* keys (new) alongside legacy nested keys
+    list_hide_acquaintances = _flat_or_raw(raw, "list.hide_acquaintances", "list_hide_acquaintances")
+    list_sort_priority = _flat_or_raw(raw, "list.sort_priority", "list_sort_priority")
+    list_sort_due_date = _flat_or_raw(raw, "list.sort_due_date", "list_sort_due_date")
+    list_columns = _flat_or_raw(raw, "list.columns", "list_columns")
+    priority_order = _flat_or_raw(raw, "list.priority_order", "priority_order")
+
     return Config(
-        cadence=raw["cadence"],
-        snooze=raw.get("snooze"),
+        cadence=cadence or dict(DEFAULT_CADENCE),
+        snooze=snooze or None,
         default_priority=default_priority,
         default_subcommand=default_subcommand,
-        priority_order=raw.get("priority_order"),
-        list_hide_acquaintances=raw.get("list_hide_acquaintances"),
-        list_sort_priority=raw.get("list_sort_priority"),
-        list_sort_due_date=raw.get("list_sort_due_date"),
-        list_columns=raw.get("list_columns"),
+        priority_order=priority_order,
+        list_hide_acquaintances=list_hide_acquaintances,
+        list_sort_priority=list_sort_priority,
+        list_sort_due_date=list_sort_due_date,
+        list_columns=list_columns,
     )
 
 
@@ -116,28 +149,59 @@ def _validate(raw: Any, path: Path) -> None:
     if not isinstance(raw, dict):
         raise ConfigError(f"{path}: expected a JSON object, got {type(raw).__name__}")
 
-    cadence = raw.get("cadence")
-    if not isinstance(cadence, dict):
+    # cadence: nested (old) or cadence.<priority> flat keys (new)
+    cadence_ok = isinstance(raw.get("cadence"), dict) or any(
+        k.startswith("cadence.") and k[len("cadence."):] in VALID_PRIORITIES
+        for k in raw
+    )
+    if not cadence_ok:
         raise ConfigError(
-            f"{path}: 'cadence' must be a JSON object, got {type(cadence).__name__}"
+            f"{path}: missing 'cadence' object or 'cadence.<priority>' flat keys"
         )
 
-    for key, val in cadence.items():
-        if not isinstance(key, str) or not isinstance(val, int):
-            raise ConfigError(
-                f"{path}: 'cadence' values must be integers, got {type(val).__name__} for key {key!r}"
-            )
+    # Validate nested cadence (old format)
+    cadence = raw.get("cadence")
+    if isinstance(cadence, dict):
+        for key, val in cadence.items():
+            if not isinstance(key, str) or not isinstance(val, int):
+                raise ConfigError(
+                    f"{path}: 'cadence' values must be integers, "
+                    f"got {type(val).__name__} for key {key!r}"
+                )
 
+    # Validate flat cadence.<priority> keys
+    for key, val in raw.items():
+        if key.startswith("cadence."):
+            prio = key[len("cadence."):]
+            if prio not in VALID_PRIORITIES:
+                raise ConfigError(
+                    f"{path}: unknown priority {prio!r} in {key!r}"
+                )
+            if not isinstance(val, int):
+                raise ConfigError(
+                    f"{path}: {key!r} must be an integer, got {type(val).__name__}"
+                )
+
+    # snooze: nested (old) or snooze.<priority> flat keys (new)
     snooze = raw.get("snooze")
-    if snooze is not None:
-        if not isinstance(snooze, dict):
-            raise ConfigError(
-                f"{path}: 'snooze' must be a JSON object, got {type(snooze).__name__}"
-            )
+    if isinstance(snooze, dict):
         for key, val in snooze.items():
             if not isinstance(key, str) or not isinstance(val, int):
                 raise ConfigError(
-                    f"{path}: 'snooze' values must be integers, got {type(val).__name__} for key {key!r}"
+                    f"{path}: 'snooze' values must be integers, "
+                    f"got {type(val).__name__} for key {key!r}"
+                )
+
+    for key, val in raw.items():
+        if key.startswith("snooze."):
+            prio = key[len("snooze."):]
+            if prio not in VALID_PRIORITIES:
+                raise ConfigError(
+                    f"{path}: unknown priority {prio!r} in {key!r}"
+                )
+            if not isinstance(val, int):
+                raise ConfigError(
+                    f"{path}: {key!r} must be an integer, got {type(val).__name__}"
                 )
 
     priority_order = raw.get("priority_order")
@@ -155,39 +219,48 @@ def _validate(raw: Any, path: Path) -> None:
                     f"{path}: 'priority_order' contains invalid priority {p!r}"
                 )
 
-    list_hide_acquaintances = raw.get("list_hide_acquaintances")
-    if list_hide_acquaintances is not None and not isinstance(list_hide_acquaintances, bool):
+    _validate_flat_bool("list.hide_acquaintances", raw, path)
+    _validate_flat_bool("list_hide_acquaintances", raw, path)
+
+    _validate_flat_sort("list.sort_priority", raw, path)
+    _validate_flat_sort("list_sort_priority", raw, path)
+    _validate_flat_sort("list.sort_due_date", raw, path)
+    _validate_flat_sort("list_sort_due_date", raw, path)
+
+    for flat_key in ("list.columns", "list_columns"):
+        _validate_flat_list(flat_key, raw, path)
+
+
+def _validate_flat_bool(key: str, raw: dict[str, Any], path: Path) -> None:
+    val = raw.get(key)
+    if val is not None and not isinstance(val, bool):
         raise ConfigError(
-            f"{path}: 'list_hide_acquaintances' must be a boolean, "
-            f"got {type(list_hide_acquaintances).__name__}"
+            f"{path}: {key!r} must be a boolean, got {type(val).__name__}"
         )
 
-    _validate_sort_key("list_sort_priority", raw, path)
-    _validate_sort_key("list_sort_due_date", raw, path)
 
-    list_columns = raw.get("list_columns")
-    if list_columns is not None:
-        if not isinstance(list_columns, list) or not all(
-            isinstance(c, str) for c in list_columns
-        ):
-            raise ConfigError(
-                f"{path}: 'list_columns' must be a list of strings, "
-                f"got {type(list_columns).__name__}"
-            )
-        for c in list_columns:
-            if c not in VALID_LIST_COLUMNS:
-                raise ConfigError(
-                    f"{path}: 'list_columns' contains unknown column {c!r}; "
-                    f"valid: {', '.join(sorted(VALID_LIST_COLUMNS))}"
-                )
-
-
-def _validate_sort_key(key: str, raw: dict[str, Any], path: Path) -> None:
+def _validate_flat_sort(key: str, raw: dict[str, Any], path: Path) -> None:
     val = raw.get(key)
     if val is not None and val not in ("asc", "desc"):
         raise ConfigError(
             f"{path}: {key!r} must be 'asc' or 'desc', got {val!r}"
         )
+
+
+def _validate_flat_list(key: str, raw: dict[str, Any], path: Path) -> None:
+    val = raw.get(key)
+    if val is not None:
+        if not isinstance(val, list) or not all(isinstance(c, str) for c in val):
+            raise ConfigError(
+                f"{path}: {key!r} must be a list of strings, "
+                f"got {type(val).__name__}"
+            )
+        for c in val:
+            if c not in VALID_LIST_COLUMNS:
+                raise ConfigError(
+                    f"{path}: {key!r} contains unknown column {c!r}; "
+                    f"valid: {', '.join(sorted(VALID_LIST_COLUMNS))}"
+                )
 
 
 def save_config(cfg: Config, path: Path | None = None) -> None:
@@ -196,23 +269,33 @@ def save_config(cfg: Config, path: Path | None = None) -> None:
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload: dict[str, Any] = {"cadence": cfg.cadence}
-        if cfg.snooze is not None and cfg.snooze != DEFAULT_SNOOZE:
-            payload["snooze"] = cfg.snooze
+        payload: dict[str, Any] = {}
+        # Write cadence as flat cadence.<priority> keys
+        for prio, days in cfg.cadence.items():
+            if days != DEFAULT_CADENCE.get(prio):
+                payload[f"cadence.{prio}"] = days
+        if not payload:
+            # All defaults — signal one key so validation passes
+            payload["cadence.deep"] = DEFAULT_CADENCE["deep"]
+        # Write snooze as flat snooze.<priority> keys
+        if cfg.snooze is not None:
+            for prio, days in cfg.snooze.items():
+                if days != DEFAULT_SNOOZE.get(prio):
+                    payload[f"snooze.{prio}"] = days
         if cfg.default_priority != DEFAULT_PRIORITY:
             payload["default_priority"] = cfg.default_priority
         if cfg.default_subcommand != DEFAULT_SUBCOMMAND:
             payload["default_subcommand"] = cfg.default_subcommand
         if cfg.priority_order is not None and cfg.priority_order != DEFAULT_PRIORITY_ORDER:
-            payload["priority_order"] = cfg.priority_order
+            payload["list.priority_order"] = cfg.priority_order
         if cfg.list_hide_acquaintances is not None and cfg.list_hide_acquaintances is not True:
-            payload["list_hide_acquaintances"] = cfg.list_hide_acquaintances
+            payload["list.hide_acquaintances"] = cfg.list_hide_acquaintances
         if cfg.list_sort_priority is not None and cfg.list_sort_priority != "asc":
-            payload["list_sort_priority"] = cfg.list_sort_priority
+            payload["list.sort_priority"] = cfg.list_sort_priority
         if cfg.list_sort_due_date is not None and cfg.list_sort_due_date != "desc":
-            payload["list_sort_due_date"] = cfg.list_sort_due_date
+            payload["list.sort_due_date"] = cfg.list_sort_due_date
         if cfg.list_columns is not None and cfg.list_columns != DEFAULT_LIST_COLUMNS:
-            payload["list_columns"] = cfg.list_columns
+            payload["list.columns"] = cfg.list_columns
         path.write_text(json.dumps(payload, indent=2) + "\n")
     except OSError as e:
         raise StorageError(f"could not write config to {path}: {e}") from e

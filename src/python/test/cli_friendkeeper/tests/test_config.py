@@ -108,7 +108,7 @@ class TestLoadConfig:
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "config.json"
             _write_json(p, data)
-            with pytest.raises(ConfigError, match="cadence.*must be a JSON object"):
+            with pytest.raises(ConfigError, match="missing.*cadence"):
                 load_config(p)
 
     def test_given_cadence_value_not_int_when_loading_then_raises_config_error(self) -> None:
@@ -131,7 +131,7 @@ class TestLoadConfig:
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "config.json"
             _write_json(p, data)
-            with pytest.raises(ConfigError, match="cadence.*must be a JSON object"):
+            with pytest.raises(ConfigError, match="missing.*cadence"):
                 load_config(p)
 
 
@@ -195,7 +195,7 @@ class TestSaveConfig:
             p = Path(tmp) / "config.json"
             save_config(cfg, p)
             raw = json.loads(p.read_text())
-            assert raw == {"cadence": {"deep": 3}}
+            assert raw == {"cadence.deep": 3}
 
     def test_given_unwritable_path_when_saving_then_raises_storage_error(self) -> None:
         cfg = Config(cadence={"deep": 1})

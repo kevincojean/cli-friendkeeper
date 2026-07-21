@@ -39,7 +39,7 @@ class TestRunConfigSet:
         config_path = config_dir / CONFIG_FILE_REL
         assert config_path.exists()
         raw = json.loads(config_path.read_text())
-        assert raw["cadence"]["deep"] == 7
+        assert raw["cadence.deep"] == 7
 
     def test_given_invalid_key_when_running_then_returns_error(
         self, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
@@ -77,7 +77,7 @@ class TestRunConfigSet:
 
         assert rc == 1
         captured = capsys.readouterr()
-        assert "Error: not-a-number is not a valid integer" in captured.err
+        assert "not valid for cadence.deep" in captured.err
 
     def test_given_missing_args_when_running_then_returns_error(
         self, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
@@ -120,7 +120,7 @@ class TestRunConfigSet:
         assert rc == 0
         assert config_path.exists()
         raw = json.loads(config_path.read_text())
-        assert raw["cadence"]["casual"] == 30
+        assert raw["cadence.casual"] == 30
 
     def test_given_valid_default_priority_when_running_then_updates_config(
         self, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path

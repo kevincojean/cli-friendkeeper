@@ -147,7 +147,7 @@ class TestE2E:
 
         r = _cli("config-show", env=env)
         assert r.returncode == 0, r.stderr
-        assert '"deep": 7' in r.stdout
+        assert 'cadence.deep = 7' in r.stdout
 
     def test_given_added_contact_when_force_removed_then_list_shows_empty(self, tmp_path: Path) -> None:
         env = _env(tmp_path)

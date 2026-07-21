@@ -36,13 +36,10 @@ class TestRunConfigShow:
         out = captured.out
 
         assert "Config file:" in out
-        assert "Default subcommand (no-arg): due" in out
+        assert "default_subcommand = due" in out
         for priority in ("deep", "casual", "network", "acquaintance"):
             assert priority in out
-            if DEFAULT_CADENCE[priority] > 0:
-                assert str(DEFAULT_CADENCE[priority]) in out
-            else:
-                assert "never due" in out
+            assert str(DEFAULT_CADENCE[priority]) in out
 
     def test_given_custom_config_file_when_config_show_then_prints_custom_values(
         self, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
