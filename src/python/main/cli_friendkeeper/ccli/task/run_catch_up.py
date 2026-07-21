@@ -34,12 +34,6 @@ def _do_touch(ctx: Context, contact: Contact, state: ContactState, note: str, to
     ctx.log.append(entry)
 
 
-def _do_skip(ctx: Context, contact_id: str, state: ContactState, today: object) -> None:
-    with flock_exclusive(ctx.data_dir / "state.lock"):
-        state.last_touched = today
-        ctx.states.upsert(state)
-
-
 def _do_snooze(ctx: Context, contact_id: str, state: ContactState, days: int, today: object) -> None:
     with flock_exclusive(ctx.data_dir / "state.lock"):
         state.last_touched = today + timedelta(days=days)
@@ -78,7 +72,6 @@ def run(args: list[str], ctx: Context) -> int:
         return 0
 
     touched = 0
-    skipped = 0
     snoozed = 0
 
     for i, c in enumerate(due, 1):
@@ -94,26 +87,27 @@ def run(args: list[str], ctx: Context) -> int:
 
         snooze_default = effective_snooze(ctx.config, c.priority)
         typer.echo("")
-        typer.echo(f"  (t) Touch  (s) Skip  (n) Snooze [{snooze_default}d]  (q) Quit")
+        typer.echo("  Have you caught up yet ?")
+        typer.echo("  (y) Yes  (n) Nope  (s) Snooze  (q) Quit")
 
         quit_session = False
         while True:
             choice = _prompt("> ").strip().lower()
 
-            if choice == "t":
+            if choice == "y":
                 note = _prompt("Note: ").strip()
                 _do_touch(ctx, c, state, note, today)
                 touched += 1
                 typer.echo(f"✓ {c.name} — touched")
                 break
 
-            elif choice == "s":
-                _do_skip(ctx, c.id, state, today)
-                skipped += 1
-                typer.echo(f"✓ {c.name} — skipped")
+            elif choice == "n":
+                _do_snooze(ctx, c.id, state, 1, today)
+                snoozed += 1
+                typer.echo(f"✓ {c.name} — noped (1d)")
                 break
 
-            elif choice == "n":
+            elif choice == "s":
                 snooze_days = snooze_default
                 while True:
                     raw = _prompt(f"Days [{snooze_default}]: ").strip()
@@ -134,12 +128,12 @@ def run(args: list[str], ctx: Context) -> int:
                 break
 
             else:
-                typer.echo("Invalid choice. Use t, s, n, or q.", err=True)
+                typer.echo("Invalid choice. Use y, n, s, or q.", err=True)
 
         if quit_session:
             break
 
-    total_processed = touched + skipped + snoozed
+    total_processed = touched + snoozed
     pending = len(due) - total_processed
 
     typer.echo("")
@@ -147,8 +141,6 @@ def run(args: list[str], ctx: Context) -> int:
     summary_parts = []
     if touched:
         summary_parts.append(f"Touched: {touched}")
-    if skipped:
-        summary_parts.append(f"Skipped: {skipped}")
     if snoozed:
         summary_parts.append(f"Snoozed: {snoozed}")
     if pending:

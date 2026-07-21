@@ -89,7 +89,7 @@ def test_given_due_contact_when_touch_then_state_updated_and_logged(monkeypatch:
         Contact(id="uuid-alice", name="Alice", priority="casual"),
     ])
 
-    responses: list[str] = ["t", "Caught up over coffee"]
+    responses: list[str] = ["y", "Caught up over coffee"]
     monkeypatch.setattr("builtins.input", lambda _: responses.pop(0))
 
     from cli_friendkeeper.ccli.task.run_catch_up import run
@@ -111,7 +111,7 @@ def test_given_due_contact_when_touch_then_state_updated_and_logged(monkeypatch:
     assert log_entries[0].payload == {"note": "Caught up over coffee"}
 
 
-def test_given_due_contact_when_skip_then_state_updated_not_logged(monkeypatch: Any, capsys: Any, tmp_path: Path) -> None:
+def test_given_due_contact_when_nope_then_snoozed_one_day(monkeypatch: Any, capsys: Any, tmp_path: Path) -> None:
     store = FakeStore()
     data_dir = tmp_path
     contacts = ContactRepo(store, data_dir)
@@ -125,7 +125,7 @@ def test_given_due_contact_when_skip_then_state_updated_not_logged(monkeypatch: 
         Contact(id="uuid-alice", name="Alice", priority="casual"),
     ])
 
-    responses: list[str] = ["s"]
+    responses: list[str] = ["n"]
     monkeypatch.setattr("builtins.input", lambda _: responses.pop(0))
 
     from cli_friendkeeper.ccli.task.run_catch_up import run
@@ -134,11 +134,11 @@ def test_given_due_contact_when_skip_then_state_updated_not_logged(monkeypatch: 
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "Alice — skipped" in captured.out
+    assert "Alice — noped (1d)" in captured.out
 
     state_result = states.get("uuid-alice")
     assert state_result.is_right()
-    assert state_result.value.last_touched == date(2026, 7, 20)
+    assert state_result.value.last_touched == date(2026, 7, 21)
     assert state_result.value.touch_count == 0
 
     log_entries = log.all()
@@ -159,7 +159,7 @@ def test_given_due_contact_when_snooze_then_last_touched_in_future(monkeypatch: 
         Contact(id="uuid-alice", name="Alice", priority="casual"),
     ])
 
-    responses: list[str] = ["n", "30"]
+    responses: list[str] = ["s", "30"]
     monkeypatch.setattr("builtins.input", lambda _: responses.pop(0))
 
     from cli_friendkeeper.ccli.task.run_catch_up import run
@@ -192,7 +192,7 @@ def test_given_due_contact_when_snooze_with_default_then_uses_priority_default(m
         Contact(id="uuid-alice", name="Alice", priority="deep"),
     ])
 
-    responses: list[str] = ["n", ""]
+    responses: list[str] = ["s", ""]
     monkeypatch.setattr("builtins.input", lambda _: responses.pop(0))
 
     from cli_friendkeeper.ccli.task.run_catch_up import run
@@ -219,7 +219,7 @@ def test_given_multiple_due_contacts_when_quit_mid_session_then_partial_processi
         Contact(id="uuid-bob", name="Bob", priority="casual"),
     ])
 
-    responses: list[str] = ["t", "Coffee", "q"]
+    responses: list[str] = ["y", "Coffee", "q"]
     monkeypatch.setattr("builtins.input", lambda _: responses.pop(0))
 
     from cli_friendkeeper.ccli.task.run_catch_up import run
@@ -255,7 +255,7 @@ def test_given_limit_one_when_catch_up_then_only_one_contact_shown(monkeypatch: 
         Contact(id="uuid-bob", name="Bob", priority="casual"),
     ])
 
-    responses: list[str] = ["t", "", "q"]
+    responses: list[str] = ["y", "", "q"]
     monkeypatch.setattr("builtins.input", lambda _: responses.pop(0))
 
     from cli_friendkeeper.ccli.task.run_catch_up import run
