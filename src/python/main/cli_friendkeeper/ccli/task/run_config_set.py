@@ -83,5 +83,22 @@ def run(args: list[str], ctx: Context) -> int:
         typer.echo(f"Set {key} = {int_val}")
         return 0
 
+    # snooze.<priority>
+    if len(parts) == 2 and parts[0] == "snooze" and parts[1] in VALID_PRIORITIES:
+        try:
+            int_val = int(value)
+        except ValueError:
+            typer.echo(f"Error: {value} is not a valid integer", err=True)
+            return 1
+
+        cfg = load_config()
+        if cfg.snooze is None:
+            from cli_friendkeeper.config import DEFAULT_SNOOZE
+            cfg.snooze = dict(DEFAULT_SNOOZE)
+        cfg.snooze[parts[1]] = int_val
+        save_config(cfg)
+        typer.echo(f"Set {key} = {int_val}")
+        return 0
+
     typer.echo(f"Error: Unknown config key: {key}", err=True)
     return 1

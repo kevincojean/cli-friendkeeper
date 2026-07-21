@@ -15,6 +15,13 @@ DEFAULT_CADENCE: dict[str, int] = {
     "acquaintance": 0,
 }
 
+DEFAULT_SNOOZE: dict[str, int] = {
+    "deep": 7,
+    "casual": 15,
+    "network": 30,
+    "acquaintance": 90,
+}
+
 DEFAULT_PRIORITY: str = "casual"
 
 DEFAULT_SUBCOMMAND: str = "due"
@@ -23,6 +30,7 @@ VALID_PRIORITIES = frozenset(DEFAULT_CADENCE.keys())
 
 VALID_SUBCOMMANDS = frozenset({
     "add",
+    "catch-up",
     "list",
     "due",
     "touch",
@@ -36,8 +44,13 @@ VALID_SUBCOMMANDS = frozenset({
 @dataclass
 class Config:
     cadence: dict[str, int]
+    snooze: dict[str, int] | None = None
     default_priority: str = DEFAULT_PRIORITY
     default_subcommand: str = DEFAULT_SUBCOMMAND
+
+    def __post_init__(self) -> None:
+        if self.snooze is None:
+            self.snooze = dict(DEFAULT_SNOOZE)
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -64,6 +77,7 @@ def load_config(path: Path | None = None) -> Config:
         )
     return Config(
         cadence=raw["cadence"],
+        snooze=raw.get("snooze"),
         default_priority=default_priority,
         default_subcommand=default_subcommand,
     )
@@ -85,6 +99,18 @@ def _validate(raw: Any, path: Path) -> None:
                 f"{path}: 'cadence' values must be integers, got {type(val).__name__} for key {key!r}"
             )
 
+    snooze = raw.get("snooze")
+    if snooze is not None:
+        if not isinstance(snooze, dict):
+            raise ConfigError(
+                f"{path}: 'snooze' must be a JSON object, got {type(snooze).__name__}"
+            )
+        for key, val in snooze.items():
+            if not isinstance(key, str) or not isinstance(val, int):
+                raise ConfigError(
+                    f"{path}: 'snooze' values must be integers, got {type(val).__name__} for key {key!r}"
+                )
+
 
 def save_config(cfg: Config, path: Path | None = None) -> None:
     if path is None:
@@ -93,6 +119,8 @@ def save_config(cfg: Config, path: Path | None = None) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload: dict[str, Any] = {"cadence": cfg.cadence}
+        if cfg.snooze is not None and cfg.snooze != DEFAULT_SNOOZE:
+            payload["snooze"] = cfg.snooze
         if cfg.default_priority != DEFAULT_PRIORITY:
             payload["default_priority"] = cfg.default_priority
         if cfg.default_subcommand != DEFAULT_SUBCOMMAND:
@@ -112,4 +140,12 @@ def effective_cadence(cfg: Config, priority: str, override: int | None) -> int:
     if priority in DEFAULT_CADENCE:
         return DEFAULT_CADENCE[priority]
 
+    raise InvalidPriorityError(f"unknown priority: {priority!r}")
+
+
+def effective_snooze(cfg: Config, priority: str) -> int:
+    if cfg.snooze is not None and priority in cfg.snooze:
+        return cfg.snooze[priority]
+    if priority in DEFAULT_SNOOZE:
+        return DEFAULT_SNOOZE[priority]
     raise InvalidPriorityError(f"unknown priority: {priority!r}")
