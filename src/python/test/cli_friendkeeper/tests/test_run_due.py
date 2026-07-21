@@ -164,6 +164,7 @@ def test_given_json_flag_when_run_due_then_valid_json_printed(capsys: Any, tmp_p
     assert data[0]["id"] == "uuid-alice"
     assert data[0]["name"] == "Alice"
     assert data[0]["days_since_touched"] == 49
+    assert data[0]["notes"] == ""
 
 
 def _clock(fixed_date: date) -> Any:

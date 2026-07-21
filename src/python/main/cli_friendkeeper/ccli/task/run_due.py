@@ -77,6 +77,7 @@ def run(args: list[str], ctx: Context) -> int:
                 "id": c.id,
                 "name": c.name,
                 "priority": c.priority,
+                "notes": c.notes,
             }
             if state is not None:
                 d["days_since_touched"] = days_since_touched(state, today)
@@ -104,7 +105,8 @@ def _print_table(
     from cli_friendkeeper.models import Contact, ContactState
 
     date_fmt = "%Y-%m-%d"
-    header = f"{'ID':<10} {'Name':<20} {'Priority':<10} {'Days Since':<12} {'Last Touched':<15}"
+    NOTES_WIDTH = 25
+    header = f"{'ID':<10} {'Name':<20} {'Priority':<10} {'Days Since':<12} {'Last Touched':<15} {'Notes':<{NOTES_WIDTH}}"
     sep = "-" * len(header)
 
     typer.echo(header)
@@ -126,6 +128,8 @@ def _print_table(
             days_str = "Never"
             last_str = "—"
 
+        notes = c.notes[:NOTES_WIDTH - 1] + "…" if len(c.notes) > NOTES_WIDTH else c.notes
+
         typer.echo(
-            f"{c.id[:8]:<10} {c.name:<20} {c.priority:<10} {days_str:<12} {last_str:<15}"
+            f"{c.id[:8]:<10} {c.name:<20} {c.priority:<10} {days_str:<12} {last_str:<15} {notes:<{NOTES_WIDTH}}"
         )
