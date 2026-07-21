@@ -17,13 +17,27 @@ DEFAULT_CADENCE: dict[str, int] = {
 
 DEFAULT_PRIORITY: str = "casual"
 
+DEFAULT_SUBCOMMAND: str = "due"
+
 VALID_PRIORITIES = frozenset(DEFAULT_CADENCE.keys())
+
+VALID_SUBCOMMANDS = frozenset({
+    "add",
+    "list",
+    "due",
+    "touch",
+    "remove",
+    "rebuild-state",
+    "config-show",
+    "config-set",
+})
 
 
 @dataclass
 class Config:
     cadence: dict[str, int]
     default_priority: str = DEFAULT_PRIORITY
+    default_subcommand: str = DEFAULT_SUBCOMMAND
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -42,7 +56,17 @@ def load_config(path: Path | None = None) -> Config:
     default_priority = raw.get("default_priority", DEFAULT_PRIORITY)
     if default_priority not in VALID_PRIORITIES:
         raise ConfigError(f"{path}: invalid default_priority {default_priority!r}")
-    return Config(cadence=raw["cadence"], default_priority=default_priority)
+    default_subcommand = raw.get("default_subcommand", DEFAULT_SUBCOMMAND)
+    if default_subcommand not in VALID_SUBCOMMANDS:
+        raise ConfigError(
+            f"{path}: invalid default_subcommand {default_subcommand!r}; "
+            f"valid: {', '.join(sorted(VALID_SUBCOMMANDS))}"
+        )
+    return Config(
+        cadence=raw["cadence"],
+        default_priority=default_priority,
+        default_subcommand=default_subcommand,
+    )
 
 
 def _validate(raw: Any, path: Path) -> None:
@@ -71,6 +95,8 @@ def save_config(cfg: Config, path: Path | None = None) -> None:
         payload: dict[str, Any] = {"cadence": cfg.cadence}
         if cfg.default_priority != DEFAULT_PRIORITY:
             payload["default_priority"] = cfg.default_priority
+        if cfg.default_subcommand != DEFAULT_SUBCOMMAND:
+            payload["default_subcommand"] = cfg.default_subcommand
         path.write_text(json.dumps(payload, indent=2) + "\n")
     except OSError as e:
         raise StorageError(f"could not write config to {path}: {e}") from e

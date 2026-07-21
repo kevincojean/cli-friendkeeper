@@ -233,3 +233,28 @@ class TestE2E:
         r = _cli("due", env=env)
         assert r.returncode == 0, r.stderr
         assert "Judy" in r.stdout
+
+    def test_given_no_subcommand_when_cli_invoked_then_defaults_to_due(self, tmp_path: Path) -> None:
+        """given no subcommand when CLI invoked then defaults to 'friend due'."""
+        env = _env(tmp_path)
+
+        r = _cli("add", "--name", "Kate", "--email", "kate@example.com", env=env)
+        assert r.returncode == 0, r.stderr
+
+        # Call with no subcommand — should behave like `friend due`
+        r = _cli(env=env)
+        assert r.returncode == 0, r.stderr
+        assert "Kate" in r.stdout
+
+    def test_given_default_subcommand_override_when_cli_invoked_then_uses_configured(
+        self, tmp_path: Path,
+    ) -> None:
+        """given config-set default_subcommand list when CLI invoked with no args then runs list."""
+        env = _env(tmp_path)
+
+        r = _cli("config-set", "default_subcommand", "list", env=env)
+        assert r.returncode == 0, r.stderr
+
+        r = _cli(env=env)
+        assert r.returncode == 0, r.stderr
+        assert "No contacts yet." in r.stdout

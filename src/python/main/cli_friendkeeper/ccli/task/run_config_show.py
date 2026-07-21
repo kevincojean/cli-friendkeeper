@@ -33,6 +33,7 @@ def run(args: list[str], ctx: Context) -> int:
     typer.echo("")
 
     typer.echo(f"Default priority for new contacts: {ctx.config.default_priority}")
+    typer.echo(f"Default subcommand (no-arg): {ctx.config.default_subcommand}")
     typer.echo("")
 
     typer.echo("Current cadence configuration:")

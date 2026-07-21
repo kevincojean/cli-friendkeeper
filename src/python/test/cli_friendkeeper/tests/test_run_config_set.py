@@ -164,3 +164,46 @@ class TestRunConfigSet:
         assert rc == 1
         captured = capsys.readouterr()
         assert "not a valid priority" in captured.err
+
+    def test_given_valid_default_subcommand_when_running_then_updates_config(
+        self, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        """given valid default_subcommand when run then config is updated."""
+        config_dir = tmp_path / "config"
+        cache_dir = tmp_path / "cache"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+        monkeypatch.setenv("XDG_CACHE_HOME", str(cache_dir))
+
+        from cli_friendkeeper.ccli.ccli import Context
+        from cli_friendkeeper.ccli.task.run_config_set import run
+
+        ctx = Context(tmp_path / "data")
+        rc = run(["default_subcommand", "list"], ctx)
+
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert "Set default_subcommand = list" in captured.out
+
+        config_path = config_dir / CONFIG_FILE_REL
+        assert config_path.exists()
+        raw = json.loads(config_path.read_text())
+        assert raw["default_subcommand"] == "list"
+
+    def test_given_invalid_default_subcommand_when_running_then_returns_error(
+        self, monkeypatch: MonkeyPatch, capsys: CaptureFixture[str], tmp_path: Path
+    ) -> None:
+        """given invalid default_subcommand when run then returns rc=1."""
+        config_dir = tmp_path / "config"
+        cache_dir = tmp_path / "cache"
+        monkeypatch.setenv("XDG_CONFIG_HOME", str(config_dir))
+        monkeypatch.setenv("XDG_CACHE_HOME", str(cache_dir))
+
+        from cli_friendkeeper.ccli.ccli import Context
+        from cli_friendkeeper.ccli.task.run_config_set import run
+
+        ctx = Context(tmp_path / "data")
+        rc = run(["default_subcommand", "invalid"], ctx)
+
+        assert rc == 1
+        captured = capsys.readouterr()
+        assert "not a valid subcommand" in captured.err

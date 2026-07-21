@@ -9,6 +9,7 @@ import pytest
 from cli_friendkeeper.config import (
     DEFAULT_CADENCE,
     DEFAULT_PRIORITY,
+    DEFAULT_SUBCOMMAND,
     Config,
     effective_cadence,
     load_config,
@@ -60,6 +61,30 @@ class TestLoadConfig:
             p = Path(tmp) / "config.json"
             _write_json(p, data)
             with pytest.raises(ConfigError, match="invalid default_priority"):
+                load_config(p)
+
+    def test_given_default_subcommand_in_config_when_loading_then_uses_it(self) -> None:
+        data = {"cadence": {"deep": 15}, "default_subcommand": "list"}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            cfg = load_config(p)
+            assert cfg.default_subcommand == "list"
+
+    def test_given_missing_default_subcommand_when_loading_then_defaults_to_due(self) -> None:
+        data = {"cadence": {"deep": 15}}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            cfg = load_config(p)
+            assert cfg.default_subcommand == DEFAULT_SUBCOMMAND
+
+    def test_given_invalid_default_subcommand_when_loading_then_raises_config_error(self) -> None:
+        data = {"cadence": {"deep": 15}, "default_subcommand": "unknown"}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            with pytest.raises(ConfigError, match="invalid default_subcommand"):
                 load_config(p)
 
     def test_given_partial_config_when_loading_then_uses_defaults_for_missing_keys(self) -> None:
@@ -132,6 +157,30 @@ class TestSaveConfig:
             save_config(cfg, p)
             reloaded = load_config(p)
             assert reloaded.default_priority == "acquaintance"
+
+    def test_given_non_default_subcommand_when_saving_then_persists(self) -> None:
+        cfg = Config(cadence={"deep": 5}, default_subcommand="list")
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            save_config(cfg, p)
+            reloaded = load_config(p)
+            assert reloaded.default_subcommand == "list"
+
+    def test_given_default_subcommand_when_saving_then_omitted_from_file(self) -> None:
+        cfg = Config(cadence={"deep": 5}, default_subcommand=DEFAULT_SUBCOMMAND)
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            save_config(cfg, p)
+            raw = json.loads(p.read_text())
+            assert "default_subcommand" not in raw
+
+    def test_given_saved_default_subcommand_when_reading_raw_then_present(self) -> None:
+        cfg = Config(cadence={"deep": 3}, default_subcommand="list")
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            save_config(cfg, p)
+            raw = json.loads(p.read_text())
+            assert raw["default_subcommand"] == "list"
 
     def test_given_new_config_when_saving_then_creates_parent_dirs(self) -> None:
         cfg = Config(cadence={"deep": 1})

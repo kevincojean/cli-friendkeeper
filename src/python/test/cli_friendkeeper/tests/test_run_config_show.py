@@ -36,6 +36,7 @@ class TestRunConfigShow:
         out = captured.out
 
         assert "Config file:" in out
+        assert "Default subcommand (no-arg): due" in out
         for priority in ("deep", "casual", "network", "acquaintance"):
             assert priority in out
             if DEFAULT_CADENCE[priority] > 0:

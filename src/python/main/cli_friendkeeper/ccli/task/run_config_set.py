@@ -5,7 +5,7 @@ from __future__ import annotations
 import typer
 
 from cli_friendkeeper.ccli.ccli import Context
-from cli_friendkeeper.config import VALID_PRIORITIES, load_config, save_config
+from cli_friendkeeper.config import VALID_PRIORITIES, VALID_SUBCOMMANDS, load_config, save_config
 
 
 def _print_usage() -> None:
@@ -52,6 +52,21 @@ def run(args: list[str], ctx: Context) -> int:
         cfg.default_priority = value
         save_config(cfg)
         typer.echo(f"Set default_priority = {value}")
+        return 0
+
+    # default_subcommand
+    if len(parts) == 1 and parts[0] == "default_subcommand":
+        if value not in VALID_SUBCOMMANDS:
+            typer.echo(
+                f"Error: {value!r} is not a valid subcommand; "
+                f"choose from {', '.join(sorted(VALID_SUBCOMMANDS))}",
+                err=True,
+            )
+            return 1
+        cfg = load_config()
+        cfg.default_subcommand = value
+        save_config(cfg)
+        typer.echo(f"Set default_subcommand = {value}")
         return 0
 
     # cadence.<priority>

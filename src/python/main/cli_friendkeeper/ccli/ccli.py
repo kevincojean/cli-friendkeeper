@@ -43,7 +43,9 @@ def build_context(data_dir_override: Path | None = None) -> Context:
 
 def _print_help() -> None:
     """Print usage help to stderr."""
-    typer.echo("Usage: friend <subcommand> [args]\n", err=True)
+    typer.echo("Usage: friend [<subcommand> [args]]\n", err=True)
+    typer.echo("With no subcommand, defaults to `friend due`", err=True)
+    typer.echo("(overridable via `config-set default_subcommand <subcommand>`).\n", err=True)
     typer.echo("Subcommands:", err=True)
     typer.echo("  add       Add a new contact (priorities: deep, casual, network, acquaintance)", err=True)
     typer.echo("  list      List all contacts", err=True)
@@ -60,12 +62,18 @@ def main(argv: list[str] | None = None) -> int:
     if argv is None:
         argv = sys.argv[1:]
 
-    if not argv or argv[0] in ("--help", "-h"):
+    if argv and argv[0] in ("--help", "-h"):
         _print_help()
         return 0
 
-    verb = argv[0]
-    sub_args = argv[1:]
+    ctx = build_context()
+
+    if not argv:
+        verb = ctx.config.default_subcommand
+        sub_args: list[str] = []
+    else:
+        verb = argv[0]
+        sub_args = argv[1:]
 
     try:
         module = importlib.import_module(
@@ -77,7 +85,6 @@ def main(argv: list[str] | None = None) -> int:
         _print_help()
         return 1
 
-    ctx = build_context()
     return module.run(sub_args, ctx)
 
 
