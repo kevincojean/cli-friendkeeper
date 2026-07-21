@@ -32,6 +32,9 @@ def run(args: list[str], ctx: Context) -> int:
     typer.echo(f"Config file: {config_file()}")
     typer.echo("")
 
+    typer.echo(f"Default priority for new contacts: {ctx.config.default_priority}")
+    typer.echo("")
+
     typer.echo("Current cadence configuration:")
     typer.echo(json.dumps(ctx.config.cadence, indent=2))
     typer.echo("")
@@ -43,6 +46,7 @@ def run(args: list[str], ctx: Context) -> int:
     typer.echo("Effective cadence per priority:")
     for priority in sorted(VALID_PRIORITIES):
         effective = ctx.config.cadence.get(priority, DEFAULT_CADENCE[priority])
-        typer.echo(f"  {priority}: {effective} days")
+        effective_str = f"{effective} days" if effective > 0 else "never due (acquaintance)"
+        typer.echo(f"  {priority}: {effective_str}")
 
     return 0

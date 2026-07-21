@@ -7,6 +7,8 @@ from cli_friendkeeper.models import Contact, ContactState
 
 
 def is_due(state: ContactState, contact: Contact, today: date, cadence: int) -> bool:
+    if cadence <= 0:
+        return False
     if state.removed:
         return False
     if state.last_touched is None:

@@ -12,7 +12,10 @@ DEFAULT_CADENCE: dict[str, int] = {
     "deep": 15,
     "casual": 45,
     "network": 180,
+    "acquaintance": 0,
 }
+
+DEFAULT_PRIORITY: str = "casual"
 
 VALID_PRIORITIES = frozenset(DEFAULT_CADENCE.keys())
 
@@ -20,6 +23,7 @@ VALID_PRIORITIES = frozenset(DEFAULT_CADENCE.keys())
 @dataclass
 class Config:
     cadence: dict[str, int]
+    default_priority: str = DEFAULT_PRIORITY
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -35,7 +39,10 @@ def load_config(path: Path | None = None) -> Config:
         raise ConfigError(f"invalid JSON in {path}: {e}") from e
 
     _validate(raw, path)
-    return Config(cadence=raw["cadence"])
+    default_priority = raw.get("default_priority", DEFAULT_PRIORITY)
+    if default_priority not in VALID_PRIORITIES:
+        raise ConfigError(f"{path}: invalid default_priority {default_priority!r}")
+    return Config(cadence=raw["cadence"], default_priority=default_priority)
 
 
 def _validate(raw: Any, path: Path) -> None:
@@ -61,7 +68,10 @@ def save_config(cfg: Config, path: Path | None = None) -> None:
 
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"cadence": cfg.cadence}, indent=2) + "\n")
+        payload: dict[str, Any] = {"cadence": cfg.cadence}
+        if cfg.default_priority != DEFAULT_PRIORITY:
+            payload["default_priority"] = cfg.default_priority
+        path.write_text(json.dumps(payload, indent=2) + "\n")
     except OSError as e:
         raise StorageError(f"could not write config to {path}: {e}") from e
 

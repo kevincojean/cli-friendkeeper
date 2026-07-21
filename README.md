@@ -42,6 +42,22 @@ friend remove alice --force
 
 ## Data & Config
 
+## Priorities
+
+| Priority | Default Cadence | Description |
+|----------|----------------|-------------|
+| `deep` | 15 days | Close relationships — stay in regular contact |
+| `casual` | 45 days | Friends you want to check in on periodically |
+| `network` | 180 days | Professional network, infrequent check-ins |
+| `acquaintance` | Never due | People you want to track but never get prompted about |
+
+The default priority for new contacts is `casual`. Override it in config:
+```
+friend config-set default_priority acquaintance
+```
+
+## Data & Config
+
 - **Data**: `~/.cache/com.kevincojean.cli-friendkeeper/` (or `$XDG_CACHE_HOME`)
 - **Config**: `~/.config/com.kevincojean.cli-friendkeeper/config.json` (or `$XDG_CONFIG_HOME`)
 - Config overrides default cadences: `friend config-set cadence.deep 7`

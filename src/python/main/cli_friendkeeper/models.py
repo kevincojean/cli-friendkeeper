@@ -9,7 +9,7 @@ from email_validator import EmailNotValidError, validate_email
 
 from cli_friendkeeper.errors import InvalidEmailError
 
-Priority = Literal["deep", "casual", "network"]
+Priority = Literal["deep", "casual", "network", "acquaintance"]
 
 
 @dataclass

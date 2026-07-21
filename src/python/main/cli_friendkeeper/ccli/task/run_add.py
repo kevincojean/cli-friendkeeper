@@ -2,7 +2,7 @@
 
 Usage:
     friend add --name <name> [--email <email>] [--phone <number>]
-               [--priority <deep|casual|network>] [--cadence-days <n>]
+               [--priority <deep|casual|network|acquaintance>] [--cadence-days <n>]
                [--notes <text>]
 """
 
@@ -13,6 +13,7 @@ from uuid import uuid4
 
 import typer
 
+from cli_friendkeeper.config import DEFAULT_PRIORITY
 from cli_friendkeeper.errors import ContactAlreadyExistsError, InvalidEmailError
 from cli_friendkeeper.models import Contact, LogEntry
 
@@ -21,7 +22,7 @@ def _print_usage() -> None:
     """Print usage help to stderr."""
     typer.echo(
         "Usage: friend add --name <name> [--email <email>] [--phone <number>]"
-        " [--priority <deep|casual|network>] [--cadence-days <n>] [--notes <text>]",
+        " [--priority <deep|casual|network|acquaintance>] [--cadence-days <n>] [--notes <text>]",
         err=True,
     )
 
@@ -39,7 +40,7 @@ def run(args: list[str], ctx: Any) -> int:
     name_val: str | None = None
     email_val: str | None = None
     phone_val: str | None = None
-    priority_val: str = "casual"
+    priority_val: str = getattr(ctx.config, "default_priority", DEFAULT_PRIORITY)
     cadence_days_val: int | None = None
     notes_val: str = ""
 

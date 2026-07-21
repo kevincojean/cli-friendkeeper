@@ -17,10 +17,11 @@ def _print_usage() -> None:
 
 
 def run(args: list[str], ctx: Context) -> int:
-    """Set a config key to an integer value and persist to disk.
+    """Set a config key and persist to disk.
 
-    Supports keys of the form ``cadence.<priority>`` where ``priority``
-    is one of ``VALID_PRIORITIES``.
+    Supports keys:
+      - ``cadence.<priority>`` — set cadence days for a priority
+      - ``default_priority`` — set the default priority for new contacts
     """
     if args and args[0] in ("--help", "-h"):
         _print_usage()
@@ -37,19 +38,35 @@ def run(args: list[str], ctx: Context) -> int:
     key, value = args
 
     parts = key.split(".")
-    if len(parts) != 2 or parts[0] != "cadence" or parts[1] not in VALID_PRIORITIES:
-        typer.echo(f"Error: Unknown config key: {key}", err=True)
-        return 1
 
-    try:
-        int_val = int(value)
-    except ValueError:
-        typer.echo(f"Error: {value} is not a valid integer", err=True)
-        return 1
+    # default_priority (no sub-key)
+    if len(parts) == 1 and parts[0] == "default_priority":
+        if value not in VALID_PRIORITIES:
+            typer.echo(
+                f"Error: {value!r} is not a valid priority; "
+                f"choose from {', '.join(sorted(VALID_PRIORITIES))}",
+                err=True,
+            )
+            return 1
+        cfg = load_config()
+        cfg.default_priority = value
+        save_config(cfg)
+        typer.echo(f"Set default_priority = {value}")
+        return 0
 
-    cfg = load_config()
-    cfg.cadence[parts[1]] = int_val
-    save_config(cfg)
+    # cadence.<priority>
+    if len(parts) == 2 and parts[0] == "cadence" and parts[1] in VALID_PRIORITIES:
+        try:
+            int_val = int(value)
+        except ValueError:
+            typer.echo(f"Error: {value} is not a valid integer", err=True)
+            return 1
 
-    typer.echo(f"Set {key} = {int_val}")
-    return 0
+        cfg = load_config()
+        cfg.cadence[parts[1]] = int_val
+        save_config(cfg)
+        typer.echo(f"Set {key} = {int_val}")
+        return 0
+
+    typer.echo(f"Error: Unknown config key: {key}", err=True)
+    return 1

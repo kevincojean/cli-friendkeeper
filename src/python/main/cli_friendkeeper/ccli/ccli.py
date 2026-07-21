@@ -45,7 +45,7 @@ def _print_help() -> None:
     """Print usage help to stderr."""
     typer.echo("Usage: friend <subcommand> [args]\n", err=True)
     typer.echo("Subcommands:", err=True)
-    typer.echo("  add       Add a new contact", err=True)
+    typer.echo("  add       Add a new contact (priorities: deep, casual, network, acquaintance)", err=True)
     typer.echo("  list      List all contacts", err=True)
     typer.echo("  due       Show contacts that are due", err=True)
     typer.echo("  touch     Mark a contact as touched", err=True)

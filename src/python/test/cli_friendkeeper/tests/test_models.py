@@ -48,13 +48,15 @@ class TestContact:
         contact.validate()  # no raise
 
     def test_given_priority_type_when_used_then_accepts_expected_values(self) -> None:
-        """given Priority type then deep/casual/network are accepted"""
+        """given Priority type then deep/casual/network/acquaintance are accepted"""
         p: Priority = "deep"
         assert p == "deep"
         p = "casual"
         assert p == "casual"
         p = "network"
         assert p == "network"
+        p = "acquaintance"
+        assert p == "acquaintance"
 
 
 class TestContactState:

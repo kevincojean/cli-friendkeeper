@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from cli_friendkeeper.clock import FixedClock
+from cli_friendkeeper.config import Config, DEFAULT_CADENCE
 from cli_friendkeeper.repository import ContactRepo, LogRepo
 from conftest import FakeStore
 
@@ -20,10 +21,12 @@ class FakeContext:
         contacts: ContactRepo,
         log: LogRepo,
         clock: Any,
+        config: Config | None = None,
     ) -> None:
         self.contacts = contacts
         self.log = log
         self.clock = clock
+        self.config = config or Config(cadence=DEFAULT_CADENCE)
 
 
 def test_given_valid_contact_when_adding_then_returns_zero(tmp_path: Path) -> None:

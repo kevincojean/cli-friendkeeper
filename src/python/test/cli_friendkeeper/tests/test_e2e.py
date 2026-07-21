@@ -193,3 +193,43 @@ class TestE2E:
         assert r.returncode == 0, r.stderr
         assert "Grace" in r.stdout
         assert "Heidi" not in r.stdout
+
+    def test_given_acquaintance_contact_when_due_then_never_shown(self, tmp_path: Path) -> None:
+        """given acquaintance contact when due then never shown as due."""
+        env = _env(tmp_path)
+
+        r = _cli(
+            "add", "--name", "Ivan",
+            "--email", "ivan@example.com",
+            "--priority", "acquaintance",
+            env=env,
+        )
+        assert r.returncode == 0, r.stderr
+
+        # Never touched — normally would be due, but not for acquaintance
+        r = _cli("due", env=env)
+        assert r.returncode == 0, r.stderr
+        assert "Nothing due." in r.stdout or "Ivan" not in r.stdout
+
+        # Should still appear in list
+        r = _cli("list", env=env)
+        assert r.returncode == 0, r.stderr
+        assert "Ivan" in r.stdout
+
+    def test_given_acquaintance_with_explicit_cadence_when_due_then_shown(self, tmp_path: Path) -> None:
+        """given acquaintance with explicit --cadence-days when due then normal due logic."""
+        env = _env(tmp_path)
+
+        r = _cli(
+            "add", "--name", "Judy",
+            "--email", "judy@example.com",
+            "--priority", "acquaintance",
+            "--cadence-days", "1",
+            env=env,
+        )
+        assert r.returncode == 0, r.stderr
+
+        # Never touched but has explicit cadence of 1 day — due
+        r = _cli("due", env=env)
+        assert r.returncode == 0, r.stderr
+        assert "Judy" in r.stdout

@@ -8,6 +8,7 @@ import pytest
 
 from cli_friendkeeper.config import (
     DEFAULT_CADENCE,
+    DEFAULT_PRIORITY,
     Config,
     effective_cadence,
     load_config,
@@ -37,12 +38,29 @@ class TestLoadConfig:
             assert cfg.cadence == DEFAULT_CADENCE
 
     def test_given_valid_json_when_loading_then_parses_correctly(self) -> None:
-        data = {"cadence": {"deep": 10, "casual": 30, "network": 90}}
+        data = {"cadence": {"deep": 10, "casual": 30, "network": 90, "acquaintance": 0}}
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "config.json"
             _write_json(p, data)
             cfg = load_config(p)
-            assert cfg.cadence == {"deep": 10, "casual": 30, "network": 90}
+            assert cfg.cadence == {"deep": 10, "casual": 30, "network": 90, "acquaintance": 0}
+            assert cfg.default_priority == DEFAULT_PRIORITY
+
+    def test_given_default_priority_in_config_when_loading_then_uses_it(self) -> None:
+        data = {"cadence": {"deep": 15}, "default_priority": "acquaintance"}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            cfg = load_config(p)
+            assert cfg.default_priority == "acquaintance"
+
+    def test_given_invalid_default_priority_when_loading_then_raises_config_error(self) -> None:
+        data = {"cadence": {"deep": 15}, "default_priority": "unknown"}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            with pytest.raises(ConfigError, match="invalid default_priority"):
+                load_config(p)
 
     def test_given_partial_config_when_loading_then_uses_defaults_for_missing_keys(self) -> None:
         data = {"cadence": {"deep": 7}}
@@ -105,6 +123,15 @@ class TestSaveConfig:
             assert p.exists()
             reloaded = load_config(p)
             assert reloaded.cadence == {"deep": 5, "casual": 10}
+            assert reloaded.default_priority == DEFAULT_PRIORITY
+
+    def test_given_non_default_priority_when_saving_then_persists(self) -> None:
+        cfg = Config(cadence={"deep": 5}, default_priority="acquaintance")
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            save_config(cfg, p)
+            reloaded = load_config(p)
+            assert reloaded.default_priority == "acquaintance"
 
     def test_given_new_config_when_saving_then_creates_parent_dirs(self) -> None:
         cfg = Config(cadence={"deep": 1})
@@ -148,6 +175,14 @@ class TestEffectiveCadence:
     def test_given_unknown_priority_when_effective_then_uses_default_cadence(self) -> None:
         cfg = Config(cadence={"deep": 5})
         assert effective_cadence(cfg, "network", None) == DEFAULT_CADENCE["network"]
+
+    def test_given_acquaintance_priority_when_effective_then_returns_zero(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        assert effective_cadence(cfg, "acquaintance", None) == 0
+
+    def test_given_acquaintance_with_override_when_effective_then_override_wins(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        assert effective_cadence(cfg, "acquaintance", 30) == 30
 
     def test_given_invalid_priority_when_effective_then_raises(self) -> None:
         cfg = Config(cadence={"deep": 5})

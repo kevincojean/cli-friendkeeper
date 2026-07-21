@@ -38,6 +38,26 @@ class TestIsDue:
         today = date(2026, 7, 20)
         assert is_due(state, contact, today, cadence=30) is False
 
+    def test_given_acquaintance_cadence_zero_when_checking_due_then_returns_false(self) -> None:
+        """given acquaintance priority (cadence=0) when checking due then never due"""
+        state = ContactState(id="uuid-alice", name="Alice")
+        contact = Contact(id="uuid-alice", name="Alice")
+        today = date(2026, 7, 20)
+        assert is_due(state, contact, today, cadence=0) is False
+
+    def test_given_acquaintance_with_explicit_cadence_when_checking_due_then_uses_cadence(self) -> None:
+        """given acquaintance with explicit --cadence-days when checking due then normal logic applies"""
+        state = ContactState(
+            id="uuid-alice", name="Alice",
+            last_touched=date(2026, 7, 1),
+        )
+        contact = Contact(id="uuid-alice", name="Alice")
+        today = date(2026, 7, 20)
+        # Explicit cadence of 30 means not yet due
+        assert is_due(state, contact, today, cadence=30) is False
+        # Explicit cadence of 10 means overdue
+        assert is_due(state, contact, today, cadence=10) is True
+
 
 class TestDaysSinceTouched:
     def test_given_never_touched_when_calculating_days_since_then_returns_none(self) -> None:
