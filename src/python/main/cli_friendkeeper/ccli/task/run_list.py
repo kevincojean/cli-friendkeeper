@@ -17,7 +17,7 @@ import typer
 
 from cli_friendkeeper.ccli.ccli import Context
 from cli_friendkeeper.check_logic import days_since_touched, due_date
-from cli_friendkeeper.config import DEFAULT_PRIORITY_ORDER, effective_cadence
+from cli_friendkeeper.config import DEFAULT_LIST_COLUMNS, DEFAULT_PRIORITY_ORDER, effective_cadence
 from cli_friendkeeper.models import Contact, ContactState
 
 
@@ -160,37 +160,98 @@ def run(args: list[str], ctx: Context) -> int:
     return 0
 
 
+_COLUMNS: dict[str, tuple[str, int]] = {
+    "id": ("ID", 10),
+    "name": ("Name", 20),
+    "priority": ("Priority", 10),
+    "last_touched": ("Last Touched", 15),
+    "due_date": ("Due Date", 12),
+    "days_since": ("Days Since", 12),
+    "cadence": ("Cadence", 8),
+    "removed": ("Removed", 8),
+    "notes": ("Notes", 25),
+    "email": ("Email", 30),
+    "phone": ("Phone", 20),
+}
+
+
+def _render_cell(
+    col: str,
+    contact: Contact,
+    state: ContactState | None,
+    today: date,
+    cadence: int,
+) -> str:
+    """Render a single cell value for *col*."""
+    if state is None:
+        state = ContactState(id=contact.id, name=contact.name)
+    date_fmt = "%Y-%m-%d"
+
+    if col == "id":
+        return contact.id[:8]
+    if col == "name":
+        return contact.name
+    if col == "priority":
+        return contact.priority
+    if col == "last_touched":
+        return (
+            state.last_touched.strftime(date_fmt)
+            if state.last_touched else "—"
+        )
+    if col == "due_date":
+        dd = due_date(state, contact, today, cadence)
+        return dd.strftime(date_fmt) if dd is not None else "—"
+    if col == "days_since":
+        ds = days_since_touched(state, today)
+        return f"{ds}" if ds is not None else "Never"
+    if col == "cadence":
+        return str(cadence)
+    if col == "removed":
+        return "Y" if state.removed else "N"
+    if col == "notes":
+        return contact.notes
+    if col == "email":
+        return contact.email or "—"
+    if col == "phone":
+        return contact.phone or "—"
+    return ""
+
+
 def _print_table(
     contacts: list[Contact],
     states: dict[str, ContactState],
-    today: object,
+    today: date,
     ctx: Context,
 ) -> None:
-    date_fmt = "%Y-%m-%d"
-    header = (
-        f"{'ID':<10} {'Name':<20} {'Priority':<10} "
-        f"{'Days Since':<12} {'Last Touched':<15} {'Cadence':<8} {'Due Date':<12}"
-    )
-    sep = "-" * len(header)
+    columns = ctx.config.list_columns or DEFAULT_LIST_COLUMNS
 
-    typer.echo(header)
+    # Build header + widths
+    headers: list[str] = []
+    widths: list[int] = []
+    for col in columns:
+        if col not in _COLUMNS:
+            continue
+        hdr, w = _COLUMNS[col]
+        headers.append(hdr)
+        widths.append(w)
+
+    if not headers:
+        return
+
+    header_line = " ".join(f"{h:<{w}}" for h, w in zip(headers, widths))
+    sep = "-" * len(header_line)
+
+    typer.echo(header_line)
     typer.echo(sep)
 
     for c in contacts:
-        state = states.get(c.id, ContactState(id=c.id, name=c.name))
-        ds = days_since_touched(state, today)
+        state = states.get(c.id)
         cadence = effective_cadence(ctx.config, c.priority, c.cadence_days)
-        dd = due_date(state, c, today, cadence)
-
-        days_str = f"{ds}" if ds is not None else "Never"
-        last_str = (
-            state.last_touched.strftime(date_fmt)
-            if state.last_touched
-            else "—"
-        )
-        due_str = dd.strftime(date_fmt) if dd is not None else "—"
-
+        cells = [
+            _render_cell(col, c, state, today, cadence)
+            for col in columns
+            if col in _COLUMNS
+        ]
         typer.echo(
-            f"{c.id[:8]:<10} {c.name:<20} {c.priority:<10} "
-            f"{days_str:<12} {last_str:<15} {cadence:<8} {due_str:<12}"
+            " ".join(f"{cell:<{w}}" for cell, w in zip(cells, widths))
         )

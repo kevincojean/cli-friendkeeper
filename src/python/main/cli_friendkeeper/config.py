@@ -30,6 +30,13 @@ VALID_PRIORITIES = frozenset(DEFAULT_CADENCE.keys())
 
 DEFAULT_PRIORITY_ORDER: list[str] = ["acquaintance", "network", "casual", "deep"]
 
+VALID_LIST_COLUMNS = frozenset({
+    "id", "name", "priority", "last_touched", "due_date",
+    "days_since", "cadence", "removed", "notes", "email", "phone",
+})
+
+DEFAULT_LIST_COLUMNS: list[str] = ["id", "name", "priority", "last_touched", "due_date"]
+
 VALID_SUBCOMMANDS = frozenset({
     "add",
     "catch-up",
@@ -53,6 +60,7 @@ class Config:
     list_hide_acquaintances: bool | None = None
     list_sort_priority: str | None = None
     list_sort_due_date: str | None = None
+    list_columns: list[str] | None = None
 
     def __post_init__(self) -> None:
         if self.snooze is None:
@@ -65,6 +73,8 @@ class Config:
             self.list_sort_priority = "asc"
         if self.list_sort_due_date is None:
             self.list_sort_due_date = "desc"
+        if self.list_columns is None:
+            self.list_columns = list(DEFAULT_LIST_COLUMNS)
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -98,6 +108,7 @@ def load_config(path: Path | None = None) -> Config:
         list_hide_acquaintances=raw.get("list_hide_acquaintances"),
         list_sort_priority=raw.get("list_sort_priority"),
         list_sort_due_date=raw.get("list_sort_due_date"),
+        list_columns=raw.get("list_columns"),
     )
 
 
@@ -154,6 +165,22 @@ def _validate(raw: Any, path: Path) -> None:
     _validate_sort_key("list_sort_priority", raw, path)
     _validate_sort_key("list_sort_due_date", raw, path)
 
+    list_columns = raw.get("list_columns")
+    if list_columns is not None:
+        if not isinstance(list_columns, list) or not all(
+            isinstance(c, str) for c in list_columns
+        ):
+            raise ConfigError(
+                f"{path}: 'list_columns' must be a list of strings, "
+                f"got {type(list_columns).__name__}"
+            )
+        for c in list_columns:
+            if c not in VALID_LIST_COLUMNS:
+                raise ConfigError(
+                    f"{path}: 'list_columns' contains unknown column {c!r}; "
+                    f"valid: {', '.join(sorted(VALID_LIST_COLUMNS))}"
+                )
+
 
 def _validate_sort_key(key: str, raw: dict[str, Any], path: Path) -> None:
     val = raw.get(key)
@@ -184,6 +211,8 @@ def save_config(cfg: Config, path: Path | None = None) -> None:
             payload["list_sort_priority"] = cfg.list_sort_priority
         if cfg.list_sort_due_date is not None and cfg.list_sort_due_date != "desc":
             payload["list_sort_due_date"] = cfg.list_sort_due_date
+        if cfg.list_columns is not None and cfg.list_columns != DEFAULT_LIST_COLUMNS:
+            payload["list_columns"] = cfg.list_columns
         path.write_text(json.dumps(payload, indent=2) + "\n")
     except OSError as e:
         raise StorageError(f"could not write config to {path}: {e}") from e
