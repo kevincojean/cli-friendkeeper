@@ -27,7 +27,7 @@ class Contact:
         d = asdict(self)
         if self.added_at:
             d["added_at"] = self.added_at.isoformat()
-        return d
+        return {k: v for k, v in d.items() if v is not None}
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Contact:
@@ -61,7 +61,7 @@ class ContactState:
             d["last_touched"] = self.last_touched.isoformat()
         if self.removed_at:
             d["removed_at"] = self.removed_at.isoformat()
-        return d
+        return {k: v for k, v in d.items() if v is not None}
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> ContactState:
@@ -86,7 +86,7 @@ class LogEntry:
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["timestamp"] = self.timestamp.isoformat()
-        return d
+        return {k: v for k, v in d.items() if v is not None}
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> LogEntry:

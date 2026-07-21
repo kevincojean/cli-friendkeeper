@@ -47,6 +47,31 @@ class TestContact:
         contact = Contact(id="test-uuid-jd", name="JD")
         contact.validate()  # no raise
 
+    def test_given_minimal_contact_when_to_dict_then_omits_null_fields(self) -> None:
+        """given a Contact with only required fields when to_dict then null fields omitted"""
+        contact = Contact(id="test-uuid-jd", name="JD")
+        d = contact.to_dict()
+        assert "email" not in d
+        assert "phone" not in d
+        assert "cadence_days" not in d
+        assert "added_at" not in d
+
+    def test_given_contact_when_to_dict_then_preserves_falsy_non_null_fields(self) -> None:
+        """given a Contact with empty notes when to_dict then empty string preserved"""
+        contact = Contact(id="test-uuid-jd", name="JD", notes="")
+        d = contact.to_dict()
+        assert d.get("notes") == ""
+
+    def test_given_stripped_dict_when_from_dict_then_defaults_restored(self) -> None:
+        """given a dict with no optional fields when from_dict then defaults applied"""
+        d = {"id": "test-uuid-jd", "name": "JD"}
+        contact = Contact.from_dict(d)
+        assert contact.email is None
+        assert contact.phone is None
+        assert contact.cadence_days is None
+        assert contact.added_at is None
+        assert contact.notes == ""
+
     def test_given_priority_type_when_used_then_accepts_expected_values(self) -> None:
         """given Priority type then deep/casual/network/acquaintance are accepted"""
         p: Priority = "deep"
@@ -92,6 +117,16 @@ class TestContactState:
         d = state.to_dict()
         assert d["last_touched"] == "2025-06-15"
         assert d["removed_at"] == "2025-07-01"
+
+    def test_given_minimal_state_when_to_dict_then_omits_null_fields(self) -> None:
+        """given a ContactState with no optional fields when to_dict then null fields omitted"""
+        state = ContactState(id="test-uuid-jdoe", name="jdoe")
+        d = state.to_dict()
+        assert "last_touched" not in d
+        assert "removed_at" not in d
+        # falsy-but-non-null fields preserved
+        assert d["touch_count"] == 0
+        assert d["removed"] is False
 
 
 class TestLogEntry:
