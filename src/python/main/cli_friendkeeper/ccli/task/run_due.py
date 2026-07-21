@@ -54,7 +54,7 @@ def run(args: list[str], ctx: Context) -> int:
 
     contacts = ctx.contacts.all()
     raw_states = ctx.states.all()
-    states = {s.name: s for s in raw_states}
+    states = {s.id: s for s in raw_states}
     today = ctx.clock.today()
 
     due = select_due(contacts, states, today, ctx.config)
@@ -72,10 +72,10 @@ def run(args: list[str], ctx: Context) -> int:
     if as_json:
         output: list[dict[str, object]] = []
         for c in due:
-            state = states.get(c.name)
+            state = states.get(c.id)
             d: dict[str, object] = {
+                "id": c.id,
                 "name": c.name,
-                "display_name": c.display_name,
                 "priority": c.priority,
             }
             if state is not None:
@@ -104,7 +104,7 @@ def _print_table(
     from cli_friendkeeper.models import Contact, ContactState
 
     date_fmt = "%Y-%m-%d"
-    header = f"{'Name':<20} {'Display Name':<25} {'Priority':<10} {'Days Since':<12} {'Last Touched':<15}"
+    header = f"{'ID':<10} {'Name':<20} {'Priority':<10} {'Days Since':<12} {'Last Touched':<15}"
     sep = "-" * len(header)
 
     typer.echo(header)
@@ -112,7 +112,7 @@ def _print_table(
 
     for c in due:
         assert isinstance(c, Contact)
-        state = states.get(c.name)
+        state = states.get(c.id)
         if state is not None:
             assert isinstance(state, ContactState)
             ds = days_since_touched(state, today)
@@ -127,5 +127,5 @@ def _print_table(
             last_str = "—"
 
         typer.echo(
-            f"{c.name:<20} {c.display_name:<25} {c.priority:<10} {days_str:<12} {last_str:<15}"
+            f"{c.id[:8]:<10} {c.name:<20} {c.priority:<10} {days_str:<12} {last_str:<15}"
         )

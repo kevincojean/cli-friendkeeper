@@ -43,12 +43,12 @@ def test_given_storage_error_when_raised_then_is_friend_error() -> None:
     assert str(e)
 
 
-def test_given_contact_not_found_error_when_raised_then_has_name_attr() -> None:
-    e = ContactNotFoundError("not found", name="Alice")
+def test_given_contact_not_found_error_when_raised_then_has_contact_id_attr() -> None:
+    e = ContactNotFoundError("not found", contact_id="some-id")
 
     assert isinstance(e, FriendError)
     assert isinstance(e, Exception)
-    assert e.name == "Alice"
+    assert e.contact_id == "some-id"
     assert str(e)
 
 

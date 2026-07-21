@@ -58,7 +58,7 @@ def test_given_contact_never_touched_when_run_due_then_shows_as_due(capsys: Any,
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="casual"),
+        Contact(id="uuid-alice", name="Alice", priority="casual"),
     ])
 
     from cli_friendkeeper.ccli.task.run_due import run
@@ -67,7 +67,7 @@ def test_given_contact_never_touched_when_run_due_then_shows_as_due(capsys: Any,
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "alice" in captured.out
+    assert "Alice" in captured.out
     assert "Never" in captured.out
 
 
@@ -82,16 +82,16 @@ def test_given_priority_deep_when_run_due_then_only_deep_contacts_shown(capsys: 
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
-        Contact(name="bob", display_name="Bob", priority="casual"),
-        Contact(name="carol", display_name="Carol", priority="network"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
+        Contact(id="uuid-bob", name="Bob", priority="casual"),
+        Contact(id="uuid-carol", name="Carol", priority="network"),
     ])
     store.write_jsonl_atomic(
         data_dir / "state.jsonl",
         [
-            ContactState(name="alice", last_touched=date(2026, 6, 1)).to_dict(),
-            ContactState(name="bob", last_touched=date(2026, 6, 1)).to_dict(),
-            ContactState(name="carol", last_touched=date(2026, 6, 1)).to_dict(),
+            ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 6, 1)).to_dict(),
+            ContactState(id="uuid-bob", name="Bob", last_touched=date(2026, 6, 1)).to_dict(),
+            ContactState(id="uuid-carol", name="Carol", last_touched=date(2026, 6, 1)).to_dict(),
         ],
     )
 
@@ -101,9 +101,9 @@ def test_given_priority_deep_when_run_due_then_only_deep_contacts_shown(capsys: 
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "alice" in captured.out
-    assert "bob" not in captured.out
-    assert "carol" not in captured.out
+    assert "Alice" in captured.out
+    assert "Bob" not in captured.out
+    assert "Carol" not in captured.out
 
 
 def test_given_limit_one_when_run_due_then_only_one_contact_shown(capsys: Any, tmp_path: Path) -> None:
@@ -117,8 +117,8 @@ def test_given_limit_one_when_run_due_then_only_one_contact_shown(capsys: Any, t
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="casual"),
-        Contact(name="bob", display_name="Bob", priority="casual"),
+        Contact(id="uuid-alice", name="Alice", priority="casual"),
+        Contact(id="uuid-bob", name="Bob", priority="casual"),
     ])
 
     from cli_friendkeeper.ccli.task.run_due import run
@@ -127,8 +127,8 @@ def test_given_limit_one_when_run_due_then_only_one_contact_shown(capsys: Any, t
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "alice" in captured.out or "bob" in captured.out
-    lines = [l for l in captured.out.split("\n") if "alice" in l or "bob" in l]
+    assert "Alice" in captured.out or "Bob" in captured.out
+    lines = [l for l in captured.out.split("\n") if "Alice" in l or "Bob" in l]
     assert len(lines) == 1
 
 
@@ -145,11 +145,11 @@ def test_given_json_flag_when_run_due_then_valid_json_printed(capsys: Any, tmp_p
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
     ])
     store.write_jsonl_atomic(
         data_dir / "state.jsonl",
-        [ContactState(name="alice", last_touched=date(2026, 6, 1)).to_dict()],
+        [ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 6, 1)).to_dict()],
     )
 
     from cli_friendkeeper.ccli.task.run_due import run
@@ -161,7 +161,8 @@ def test_given_json_flag_when_run_due_then_valid_json_printed(capsys: Any, tmp_p
     data = json.loads(captured.out)
     assert isinstance(data, list)
     assert len(data) == 1
-    assert data[0]["name"] == "alice"
+    assert data[0]["id"] == "uuid-alice"
+    assert data[0]["name"] == "Alice"
     assert data[0]["days_since_touched"] == 49
 
 

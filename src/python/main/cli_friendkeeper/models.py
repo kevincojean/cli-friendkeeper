@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from typing import Any, Literal
+from uuid import NAMESPACE_DNS, uuid5
 
 from email_validator import EmailNotValidError, validate_email
 
@@ -13,8 +14,8 @@ Priority = Literal["deep", "casual", "network"]
 
 @dataclass
 class Contact:
+    id: str
     name: str
-    display_name: str
     email: str | None = None
     phone: str | None = None
     priority: Priority = "casual"
@@ -31,6 +32,8 @@ class Contact:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Contact:
         kwargs = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
+        if "id" not in kwargs:
+            kwargs["id"] = str(uuid5(NAMESPACE_DNS, f"cli-friendkeeper:{kwargs.get('name', 'unknown')}"))
         if "added_at" in kwargs and isinstance(kwargs["added_at"], str):
             kwargs["added_at"] = date.fromisoformat(kwargs["added_at"])
         return cls(**kwargs)
@@ -45,6 +48,7 @@ class Contact:
 
 @dataclass
 class ContactState:
+    id: str
     name: str
     last_touched: date | None = None
     touch_count: int = 0
@@ -62,6 +66,8 @@ class ContactState:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> ContactState:
         kwargs = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
+        if "id" not in kwargs:
+            kwargs["id"] = str(uuid5(NAMESPACE_DNS, f"cli-friendkeeper:{kwargs.get('name', 'unknown')}"))
         if "last_touched" in kwargs and isinstance(kwargs["last_touched"], str):
             kwargs["last_touched"] = date.fromisoformat(kwargs["last_touched"])
         if "removed_at" in kwargs and isinstance(kwargs["removed_at"], str):
@@ -73,6 +79,7 @@ class ContactState:
 class LogEntry:
     timestamp: datetime
     action: Literal["add", "touch", "remove", "rebuild-state"]
+    id: str
     name: str
     payload: dict[str, Any] = field(default_factory=dict)
 
@@ -84,6 +91,8 @@ class LogEntry:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> LogEntry:
         kwargs = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
+        if "id" not in kwargs:
+            kwargs["id"] = str(uuid5(NAMESPACE_DNS, f"cli-friendkeeper:{kwargs.get('name', 'unknown')}"))
         if "timestamp" in kwargs and isinstance(kwargs["timestamp"], str):
             kwargs["timestamp"] = datetime.fromisoformat(kwargs["timestamp"])
         if "payload" not in kwargs:

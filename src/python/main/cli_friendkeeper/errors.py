@@ -22,10 +22,10 @@ class ContactAlreadyExistsError(FriendError):
 
 
 class ContactNotFoundError(FriendError):
-    """Contact not found by name."""
+    """Contact not found by id."""
 
-    def __init__(self, message: str, name: str) -> None:
-        self.name = name
+    def __init__(self, message: str, contact_id: str) -> None:
+        self.contact_id = contact_id
         super().__init__(message)
 
 

@@ -1,7 +1,7 @@
 """Touch subcommand — mark a contact as contacted.
 
 Usage:
-    friend touch <name> [--note <text>]
+    friend touch <id> [--note <text>]
 
 Updates the contact state (last_touched, touch_count) and appends a log entry,
 all within an exclusive flock on ``state.lock`` for read-modify-write safety.
@@ -19,7 +19,7 @@ from cli_friendkeeper.store import flock_exclusive
 def _print_usage() -> None:
     """Print usage help to stderr."""
     typer.echo(
-        "Usage: friend touch <name> [--note <text>]",
+        "Usage: friend touch <id> [--note <text>]",
         err=True,
     )
 
@@ -34,7 +34,7 @@ def run(args: list[str], ctx: object) -> int:
         _print_usage()
         return 0
 
-    name: str | None = None
+    contact_id: str | None = None
     note: str = ""
 
     i = 0
@@ -46,32 +46,34 @@ def run(args: list[str], ctx: object) -> int:
             typer.echo(f"Unknown flag: {args[i]}", err=True)
             return 1
         else:
-            if name is None:
-                name = args[i]
+            if contact_id is None:
+                contact_id = args[i]
                 i += 1
             else:
                 typer.echo(f"Unexpected argument: {args[i]}", err=True)
                 return 1
 
-    if not name:
-        typer.echo("Error: contact name is required", err=True)
+    if not contact_id:
+        typer.echo("Error: contact id is required", err=True)
         return 1
 
-    contact_result = ctx.contacts.get(name)  # type: ignore[attr-defined]
+    contact_result = ctx.contacts.get(contact_id)  # type: ignore[attr-defined]
     if contact_result.is_left():
         err = contact_result.monoid[0]
         if isinstance(err, ContactNotFoundError):
-            typer.echo(f"Error: contact '{name}' not found", err=True)
+            typer.echo(f"Error: contact '{contact_id}' not found", err=True)
         else:
             typer.echo(f"Error: {err}", err=True)
         return 1
 
+    contact = contact_result.value
+
     with flock_exclusive(ctx.data_dir / "state.lock"):  # type: ignore[attr-defined]
-        state_result = ctx.states.get(name)  # type: ignore[attr-defined]
+        state_result = ctx.states.get(contact_id)  # type: ignore[attr-defined]
         if state_result.is_left():
             err = state_result.monoid[0]
             if isinstance(err, ContactNotFoundError):
-                state = ContactState(name=name)
+                state = ContactState(id=contact_id, name=contact.name)
             else:
                 typer.echo(f"Error: {err}", err=True)
                 return 1
@@ -80,7 +82,7 @@ def run(args: list[str], ctx: object) -> int:
 
         if state.removed:
             typer.echo(
-                f"Error: contact '{name}' has been removed",
+                f"Error: contact '{contact.name}' has been removed",
                 err=True,
             )
             return 1
@@ -92,17 +94,13 @@ def run(args: list[str], ctx: object) -> int:
     entry = LogEntry(
         timestamp=ctx.clock.now(),  # type: ignore[attr-defined]
         action="touch",
-        name=name,
+        id=contact_id,
+        name=contact.name,
         payload={"note": note},
     )
     ctx.log.append(entry)  # type: ignore[attr-defined]
 
-    last_touched_str = (
-        state.last_touched.isoformat() if state.last_touched else "never"
-    )
     typer.echo(
-        f"Touched: {name} "
-        f"(last_touched: {last_touched_str}, "
-        f"total: {state.touch_count})"
+        f"Touched: {contact.name} (id: {contact_id})"
     )
     return 0

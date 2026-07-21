@@ -8,6 +8,7 @@ No mocking — every test is a true end-to-end shell invocation.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -36,6 +37,13 @@ def _cli(*args: str, env: dict[str, str]) -> subprocess.CompletedProcess:
     )
 
 
+def _parse_id(add_stdout: str) -> str:
+    """Extract the UUID from ``add`` output: ``Added: Name (id: <uuid>)``."""
+    m = re.search(r"\(id: ([a-f0-9-]+)\)", add_stdout)
+    assert m, f"Could not parse id from: {add_stdout}"
+    return m.group(1)
+
+
 def _env(tmp_path: Path) -> dict[str, str]:
     """Build environment dict with isolated XDG directories."""
     return {
@@ -51,22 +59,23 @@ class TestE2E:
 
         r = _cli("add", "--name", "Alice", "--email", "alice@example.com", env=env)
         assert r.returncode == 0, r.stderr
+        contact_id = _parse_id(r.stdout)
 
         r = _cli("list", env=env)
         assert r.returncode == 0, r.stderr
-        assert "alice" in r.stdout
+        assert "Alice" in r.stdout
 
-        r = _cli("touch", "alice", env=env)
+        r = _cli("touch", contact_id, env=env)
         assert r.returncode == 0, r.stderr
-        assert "Touched: alice" in r.stdout
+        assert "Touched: Alice" in r.stdout
 
         r = _cli("due", env=env)
         assert r.returncode == 0, r.stderr
         assert "Nothing due." in r.stdout
 
-        r = _cli("remove", "alice", "--force", env=env)
+        r = _cli("remove", contact_id, "--force", env=env)
         assert r.returncode == 0, r.stderr
-        assert "Removed: alice" in r.stdout
+        assert "Removed: Alice" in r.stdout
 
         r = _cli("list", env=env)
         assert r.returncode == 0, r.stderr
@@ -80,7 +89,7 @@ class TestE2E:
 
         r = _cli("due", env=env)
         assert r.returncode == 0, r.stderr
-        assert "bob" in r.stdout
+        assert "Bob" in r.stdout
 
     def test_given_touched_contact_when_due_then_shows_nothing_due(self, tmp_path: Path) -> None:
         env = _env(tmp_path)
@@ -93,12 +102,13 @@ class TestE2E:
             env=env,
         )
         assert r.returncode == 0, r.stderr
+        contact_id = _parse_id(r.stdout)
 
         r = _cli("due", env=env)
         assert r.returncode == 0, r.stderr
-        assert "carol" in r.stdout
+        assert "Carol" in r.stdout
 
-        r = _cli("touch", "carol", env=env)
+        r = _cli("touch", contact_id, env=env)
         assert r.returncode == 0, r.stderr
 
         r = _cli("due", env=env)
@@ -111,8 +121,9 @@ class TestE2E:
 
         r = _cli("add", "--name", "Dave", "--email", "dave@example.com", env=env)
         assert r.returncode == 0, r.stderr
+        contact_id = _parse_id(r.stdout)
 
-        r = _cli("touch", "dave", env=env)
+        r = _cli("touch", contact_id, env=env)
         assert r.returncode == 0, r.stderr
 
         state_file = data_dir / "state.jsonl"
@@ -125,7 +136,7 @@ class TestE2E:
 
         r = _cli("list", env=env)
         assert r.returncode == 0, r.stderr
-        assert "dave" in r.stdout
+        assert "Dave" in r.stdout
 
     def test_given_config_set_when_config_show_then_shows_updated_value(self, tmp_path: Path) -> None:
         env = _env(tmp_path)
@@ -143,8 +154,9 @@ class TestE2E:
 
         r = _cli("add", "--name", "Eve", "--email", "eve@example.com", env=env)
         assert r.returncode == 0, r.stderr
+        contact_id = _parse_id(r.stdout)
 
-        r = _cli("remove", "eve", "--force", env=env)
+        r = _cli("remove", contact_id, "--force", env=env)
         assert r.returncode == 0, r.stderr
 
         r = _cli("list", env=env)
@@ -179,5 +191,5 @@ class TestE2E:
 
         r = _cli("list", "--priority", "deep", env=env)
         assert r.returncode == 0, r.stderr
-        assert "grace" in r.stdout
-        assert "heidi" not in r.stdout
+        assert "Grace" in r.stdout
+        assert "Heidi" not in r.stdout

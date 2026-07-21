@@ -10,6 +10,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -45,6 +46,12 @@ def _env(tmp_path: Path) -> dict[str, str]:
     }
 
 
+def _parse_id(add_stdout: str) -> str:
+    m = re.search(r"\(id: ([a-f0-9-]+)\)", add_stdout)
+    assert m, f"Could not parse id from: {add_stdout}"
+    return m.group(1)
+
+
 def _data_dir(tmp_path: Path) -> Path:
     """Return the data directory within an isolated tmp_path."""
     return tmp_path / "cache" / "com.kevincojean.cli-friendkeeper"
@@ -54,7 +61,7 @@ class TestConcurrency:
     """Race-condition tests for flock-based serialization."""
 
     def test_given_contact_when_concurrent_touch_then_touch_count_equals_parallel_calls(self, tmp_path: Path) -> None:
-        """5 parallel ``friend touch alice`` calls → touch_count == 5 (no lost updates)."""
+        """5 parallel ``friend touch <id>`` calls → touch_count == 5 (no lost updates)."""
         env = _env(tmp_path)
         data_dir = _data_dir(tmp_path)
 
@@ -65,10 +72,11 @@ class TestConcurrency:
             env=env,
         )
         assert r.returncode == 0, r.stderr
+        contact_id = _parse_id(r.stdout)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             futures = [
-                executor.submit(_cli, "touch", "alice", env=env)
+                executor.submit(_cli, "touch", contact_id, env=env)
                 for _ in range(5)
             ]
             results = [
@@ -85,9 +93,9 @@ class TestConcurrency:
             for line in state_path.read_text().strip().split("\n")
             if line.strip()
         ]
-        alice_states = [s for s in lines if s.get("name") == "alice"]
+        alice_states = [s for s in lines if s.get("id") == contact_id]
         assert len(alice_states) == 1, (
-            f"Expected 1 state entry for alice, got {len(alice_states)}"
+            f"Expected 1 state entry for {contact_id}, got {len(alice_states)}"
         )
         assert alice_states[0]["touch_count"] == 5, (
             f"Expected touch_count=5, got {alice_states[0]['touch_count']}"
@@ -130,7 +138,7 @@ class TestConcurrency:
         )
 
     def test_given_same_contact_when_concurrent_remove_then_exactly_one_succeeds(self, tmp_path: Path) -> None:
-        """5 parallel ``friend remove alice --force`` → exactly 1 succeeds, 4 fail."""
+        """5 parallel ``friend remove <id> --force`` → exactly 1 succeeds, 4 fail."""
         env = _env(tmp_path)
 
         r = _cli(
@@ -140,13 +148,14 @@ class TestConcurrency:
             env=env,
         )
         assert r.returncode == 0, r.stderr
+        contact_id = _parse_id(r.stdout)
 
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=5
         ) as executor:
             futures = [
                 executor.submit(
-                    _cli, "remove", "alice", "--force", env=env
+                    _cli, "remove", contact_id, "--force", env=env
                 )
                 for _ in range(5)
             ]

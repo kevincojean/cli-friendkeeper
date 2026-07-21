@@ -52,7 +52,7 @@ def run(args: list[str], ctx: Context) -> int:
 
     contacts = ctx.contacts.all()
     raw_states = ctx.states.all()
-    states = {s.name: s for s in raw_states}
+    states = {s.id: s for s in raw_states}
     today = ctx.clock.today()
 
     if not contacts:
@@ -64,7 +64,7 @@ def run(args: list[str], ctx: Context) -> int:
         contacts = [
             c
             for c in contacts
-            if not states.get(c.name, ContactState(name=c.name)).removed
+            if not states.get(c.id, ContactState(id=c.id, name=c.name)).removed
         ]
 
     if not contacts:
@@ -83,7 +83,7 @@ def run(args: list[str], ctx: Context) -> int:
         contacts,
         key=lambda c: (
             -(days_since_touched(
-                states.get(c.name, ContactState(name=c.name)), today
+                states.get(c.id, ContactState(id=c.id, name=c.name)), today
             )
             or 9999),
             c.name.lower(),
@@ -93,12 +93,12 @@ def run(args: list[str], ctx: Context) -> int:
     if as_json:
         output: list[dict[str, object]] = []
         for c in contacts:
-            state = states.get(c.name, ContactState(name=c.name))
+            state = states.get(c.id, ContactState(id=c.id, name=c.name))
             ds = days_since_touched(state, today)
             cadence = effective_cadence(ctx.config, c.priority, c.cadence_days)
             d: dict[str, object] = {
+                "id": c.id,
                 "name": c.name,
-                "display_name": c.display_name,
                 "priority": c.priority,
                 "days_since_touched": ds,
                 "last_touched": (
@@ -126,7 +126,7 @@ def _print_table(
 ) -> None:
     date_fmt = "%Y-%m-%d"
     header = (
-        f"{'Name':<20} {'Display Name':<25} {'Priority':<10} "
+        f"{'ID':<10} {'Name':<20} {'Priority':<10} "
         f"{'Days Since':<12} {'Last Touched':<15} {'Cadence':<8} {'Due?':<6}"
     )
     sep = "-" * len(header)
@@ -135,7 +135,7 @@ def _print_table(
     typer.echo(sep)
 
     for c in contacts:
-        state = states.get(c.name, ContactState(name=c.name))
+        state = states.get(c.id, ContactState(id=c.id, name=c.name))
         ds = days_since_touched(state, today)
         cadence = effective_cadence(ctx.config, c.priority, c.cadence_days)
         due = is_due(state, c, today, cadence)
@@ -149,6 +149,6 @@ def _print_table(
         due_str = "Y" if due else "N"
 
         typer.echo(
-            f"{c.name:<20} {c.display_name:<25} {c.priority:<10} "
+            f"{c.id[:8]:<10} {c.name:<20} {c.priority:<10} "
             f"{days_str:<12} {last_str:<15} {cadence:<8} {due_str:<6}"
         )

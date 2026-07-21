@@ -29,6 +29,7 @@ class FakeContext:
 def _log_entry(
     action: str,
     name: str,
+    id: str = "test-uuid",
     year: int = 2026,
     month: int = 1,
     day: int = 1,
@@ -38,6 +39,7 @@ def _log_entry(
     return LogEntry(
         timestamp=datetime(year, month, day, hour, minute, tzinfo=timezone.utc),
         action=action,  # type: ignore[arg-type]
+        id=id,
         name=name,
     )
 
@@ -57,8 +59,8 @@ class TestRebuildState:
         log = LogRepo(store, data_dir)
         ctx = FakeContext(contacts, log, data_dir)
 
-        log.append(_log_entry("add", "alice"))
-        log.append(_log_entry("touch", "alice", day=15))
+        log.append(_log_entry("add", "Alice", id="uuid-alice"))
+        log.append(_log_entry("touch", "Alice", id="uuid-alice", day=15))
 
         from cli_friendkeeper.ccli.task.run_rebuild_state import run
 
@@ -71,7 +73,8 @@ class TestRebuildState:
         rebuilt = _read_state(data_dir)
         assert len(rebuilt) == 1
         alice = rebuilt[0]
-        assert alice.name == "alice"
+        assert alice.id == "uuid-alice"
+        assert alice.name == "Alice"
         assert alice.last_touched == date(2026, 1, 15)
         assert alice.touch_count == 1
         assert alice.removed is False
@@ -86,9 +89,9 @@ class TestRebuildState:
         log = LogRepo(store, data_dir)
         ctx = FakeContext(contacts, log, data_dir)
 
-        log.append(_log_entry("add", "bob"))
-        log.append(_log_entry("touch", "bob", day=10))
-        log.append(_log_entry("remove", "bob", day=20))
+        log.append(_log_entry("add", "Bob", id="uuid-bob"))
+        log.append(_log_entry("touch", "Bob", id="uuid-bob", day=10))
+        log.append(_log_entry("remove", "Bob", id="uuid-bob", day=20))
 
         from cli_friendkeeper.ccli.task.run_rebuild_state import run
 
@@ -101,7 +104,8 @@ class TestRebuildState:
         rebuilt = _read_state(data_dir)
         assert len(rebuilt) == 1
         bob = rebuilt[0]
-        assert bob.name == "bob"
+        assert bob.id == "uuid-bob"
+        assert bob.name == "Bob"
         assert bob.removed is True
         assert bob.removed_at == date(2026, 1, 20)
         assert bob.last_touched == date(2026, 1, 10)
@@ -117,7 +121,7 @@ class TestRebuildState:
         log = LogRepo(store, data_dir)
         ctx = FakeContext(contacts, log, data_dir)
 
-        log.append(_log_entry("add", "carol"))
+        log.append(_log_entry("add", "Carol", id="uuid-carol"))
 
         from cli_friendkeeper.ccli.task.run_rebuild_state import run
 
@@ -161,10 +165,10 @@ class TestRebuildState:
         log = LogRepo(store, data_dir)
         ctx = FakeContext(contacts, log, data_dir)
 
-        log.append(_log_entry("add", "dave"))
-        log.append(_log_entry("touch", "dave", day=5))
-        log.append(_log_entry("touch", "dave", day=12))
-        log.append(_log_entry("touch", "dave", day=19))
+        log.append(_log_entry("add", "Dave", id="uuid-dave"))
+        log.append(_log_entry("touch", "Dave", id="uuid-dave", day=5))
+        log.append(_log_entry("touch", "Dave", id="uuid-dave", day=12))
+        log.append(_log_entry("touch", "Dave", id="uuid-dave", day=19))
 
         from cli_friendkeeper.ccli.task.run_rebuild_state import run
 
@@ -177,7 +181,8 @@ class TestRebuildState:
         rebuilt = _read_state(data_dir)
         assert len(rebuilt) == 1
         dave = rebuilt[0]
-        assert dave.name == "dave"
+        assert dave.id == "uuid-dave"
+        assert dave.name == "Dave"
         assert dave.touch_count == 3
         assert dave.last_touched == date(2026, 1, 19)
 
@@ -191,8 +196,8 @@ class TestRebuildState:
         log = LogRepo(store, data_dir)
         ctx = FakeContext(contacts, log, data_dir)
 
-        log.append(_log_entry("add", "eve"))
-        log.append(_log_entry("rebuild-state", "eve"))
+        log.append(_log_entry("add", "Eve", id="uuid-eve"))
+        log.append(_log_entry("rebuild-state", "Eve", id="uuid-eve"))
 
         from cli_friendkeeper.ccli.task.run_rebuild_state import run
 
@@ -205,6 +210,7 @@ class TestRebuildState:
         rebuilt = _read_state(data_dir)
         assert len(rebuilt) == 1
         eve = rebuilt[0]
-        assert eve.name == "eve"
+        assert eve.id == "uuid-eve"
+        assert eve.name == "Eve"
         assert eve.last_touched is None
         assert eve.touch_count == 0

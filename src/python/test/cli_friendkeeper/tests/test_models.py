@@ -12,8 +12,8 @@ class TestContact:
     def test_given_contact_with_all_fields_when_to_dict_and_from_dict_then_round_trips(self) -> None:
         """given a Contact with all fields when to_dict then from_dict returns equal instance"""
         contact = Contact(
-            name="jdoe",
-            display_name="Jane Doe",
+            id="test-uuid-jdoe",
+            name="Jane Doe",
             email="jane@example.com",
             phone="+1-555-0100",
             priority="deep",
@@ -27,24 +27,24 @@ class TestContact:
 
     def test_given_contact_without_added_at_when_to_dict_then_omits_key(self) -> None:
         """given a Contact with no added_at when to_dict then key absent or None"""
-        contact = Contact(name="jd", display_name="JD")
+        contact = Contact(id="test-uuid-jd", name="JD")
         d = contact.to_dict()
         assert "added_at" not in d or d["added_at"] is None
 
     def test_given_valid_email_when_validating_then_no_error(self) -> None:
         """given a valid email when validate then no exception"""
-        contact = Contact(name="jd", display_name="JD", email="user@example.com")
+        contact = Contact(id="test-uuid-jd", name="JD", email="user@example.com")
         contact.validate()  # no raise
 
     def test_given_invalid_email_when_validating_then_raises_invalid_email_error(self) -> None:
         """given an invalid email when validate then raises InvalidEmailError"""
-        contact = Contact(name="jd", display_name="JD", email="not-an-email")
+        contact = Contact(id="test-uuid-jd", name="JD", email="not-an-email")
         with pytest.raises(InvalidEmailError):
             contact.validate()
 
     def test_given_none_email_when_validating_then_no_error(self) -> None:
         """given None email when validate then no exception"""
-        contact = Contact(name="jd", display_name="JD")
+        contact = Contact(id="test-uuid-jd", name="JD")
         contact.validate()  # no raise
 
     def test_given_priority_type_when_used_then_accepts_expected_values(self) -> None:
@@ -59,8 +59,8 @@ class TestContact:
 
 class TestContactState:
     def test_given_minimal_contact_state_when_to_dict_and_from_dict_then_round_trips(self) -> None:
-        """given a ContactState with only name when to_dict/from_dict returns equal instance"""
-        state = ContactState(name="jdoe")
+        """given a ContactState with only id/name when to_dict/from_dict returns equal instance"""
+        state = ContactState(id="test-uuid-jdoe", name="jdoe")
         d = state.to_dict()
         restored = ContactState.from_dict(d)
         assert restored == state
@@ -68,6 +68,7 @@ class TestContactState:
     def test_given_contact_state_with_dates_when_to_dict_and_from_dict_then_round_trips(self) -> None:
         """given a ContactState with touch_count and removed when to_dict/from_dict round-trips"""
         state = ContactState(
+            id="test-uuid-jdoe",
             name="jdoe",
             last_touched=date(2025, 6, 15),
             touch_count=5,
@@ -81,6 +82,7 @@ class TestContactState:
     def test_given_contact_state_with_dates_when_to_dict_then_serializes_as_iso(self) -> None:
         """given a ContactState with dates when to_dict then values are ISO strings"""
         state = ContactState(
+            id="test-uuid-jdoe",
             name="jdoe",
             last_touched=date(2025, 6, 15),
             removed_at=date(2025, 7, 1),
@@ -96,6 +98,7 @@ class TestLogEntry:
         entry = LogEntry(
             timestamp=datetime(2025, 6, 1, 12, 30, 0),
             action="add",
+            id="test-uuid-jdoe",
             name="jdoe",
             payload={"source": "import"},
         )
@@ -106,7 +109,7 @@ class TestLogEntry:
     def test_given_log_entry_when_to_dict_then_timestamp_is_iso(self) -> None:
         """given a LogEntry when to_dict then timestamp is ISO string"""
         ts = datetime(2025, 6, 1, 12, 30, 0)
-        entry = LogEntry(timestamp=ts, action="touch", name="jdoe")
+        entry = LogEntry(timestamp=ts, action="touch", id="test-uuid-jdoe", name="jdoe")
         d = entry.to_dict()
         assert d["timestamp"] == ts.isoformat()
 
@@ -115,6 +118,7 @@ class TestLogEntry:
         entry = LogEntry(
             timestamp=datetime(2025, 6, 1, 12, 30, 0),
             action="remove",
+            id="test-uuid-jdoe",
             name="jdoe",
         )
         assert entry.payload == {}

@@ -28,13 +28,13 @@ def select_due(
 ) -> list[Contact]:
     result = []
     for c in contacts:
-        state = states.get(c.name, ContactState(name=c.name))
+        state = states.get(c.id, ContactState(id=c.id, name=c.name))
         cadence = effective_cadence(config, c.priority, c.cadence_days)
         if is_due(state, c, today, cadence):
             result.append(c)
     result.sort(
         key=lambda c: days_since_touched(
-            states.get(c.name, ContactState(name=c.name)), today
+            states.get(c.id, ContactState(id=c.id, name=c.name)), today
         )
         or 9999,
         reverse=True,

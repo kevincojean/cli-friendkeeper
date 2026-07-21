@@ -9,43 +9,44 @@ from cli_friendkeeper.models import Contact, ContactState
 
 class TestIsDue:
     def test_given_never_touched_when_checking_due_then_returns_true(self) -> None:
-        state = ContactState(name="alice")
-        contact = Contact(name="alice", display_name="Alice")
+        state = ContactState(id="uuid-alice", name="Alice")
+        contact = Contact(id="uuid-alice", name="Alice")
         today = date(2026, 7, 20)
         assert is_due(state, contact, today, cadence=30) is True
 
     def test_given_touched_within_cadence_when_checking_due_then_returns_false(self) -> None:
-        state = ContactState(name="alice", last_touched=date(2026, 7, 15))
-        contact = Contact(name="alice", display_name="Alice")
+        state = ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 7, 15))
+        contact = Contact(id="uuid-alice", name="Alice")
         today = date(2026, 7, 20)
         assert is_due(state, contact, today, cadence=30) is False
 
     def test_given_touched_beyond_cadence_when_checking_due_then_returns_true(self) -> None:
-        state = ContactState(name="alice", last_touched=date(2026, 6, 1))
-        contact = Contact(name="alice", display_name="Alice")
+        state = ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 6, 1))
+        contact = Contact(id="uuid-alice", name="Alice")
         today = date(2026, 7, 20)
         assert is_due(state, contact, today, cadence=30) is True
 
     def test_given_removed_contact_when_checking_due_then_returns_false(self) -> None:
         state = ContactState(
-            name="alice",
+            id="uuid-alice",
+            name="Alice",
             last_touched=date(2026, 1, 1),
             removed=True,
             removed_at=date(2026, 6, 1),
         )
-        contact = Contact(name="alice", display_name="Alice")
+        contact = Contact(id="uuid-alice", name="Alice")
         today = date(2026, 7, 20)
         assert is_due(state, contact, today, cadence=30) is False
 
 
 class TestDaysSinceTouched:
     def test_given_never_touched_when_calculating_days_since_then_returns_none(self) -> None:
-        state = ContactState(name="alice")
+        state = ContactState(id="uuid-alice", name="Alice")
         today = date(2026, 7, 20)
         assert days_since_touched(state, today) is None
 
     def test_given_touched_yesterday_when_calculating_days_since_then_returns_1(self) -> None:
-        state = ContactState(name="alice", last_touched=date(2026, 7, 19))
+        state = ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 7, 19))
         today = date(2026, 7, 20)
         assert days_since_touched(state, today) == 1
 
@@ -60,27 +61,27 @@ class TestSelectDue:
         config = Config(cadence={"deep": 15, "casual": 45, "network": 180})
         today = date(2026, 7, 20)
 
-        alice = Contact(name="alice", display_name="Alice", priority="casual")
-        bob = Contact(name="bob", display_name="Bob", priority="casual")
+        alice = Contact(id="uuid-alice", name="Alice", priority="casual")
+        bob = Contact(id="uuid-bob", name="Bob", priority="casual")
 
         states = {
-            "alice": ContactState(name="alice", last_touched=today - timedelta(days=60)),
-            "bob": ContactState(name="bob", last_touched=today - timedelta(days=50)),
+            "uuid-alice": ContactState(id="uuid-alice", name="Alice", last_touched=today - timedelta(days=60)),
+            "uuid-bob": ContactState(id="uuid-bob", name="Bob", last_touched=today - timedelta(days=50)),
         }
 
         result = select_due([bob, alice], states, today, config)
-        assert [c.name for c in result] == ["alice", "bob"]
+        assert [c.name for c in result] == ["Alice", "Bob"]
 
     def test_given_never_touched_and_overdue_contacts_when_selecting_due_then_never_touched_first(self) -> None:
         config = Config(cadence={"deep": 15, "casual": 45, "network": 180})
         today = date(2026, 7, 20)
 
-        alice = Contact(name="alice", display_name="Alice", priority="casual")
-        bob = Contact(name="bob", display_name="Bob", priority="casual")
+        alice = Contact(id="uuid-alice", name="Alice", priority="casual")
+        bob = Contact(id="uuid-bob", name="Bob", priority="casual")
 
         states = {
-            "alice": ContactState(name="alice", last_touched=today - timedelta(days=60)),
+            "uuid-alice": ContactState(id="uuid-alice", name="Alice", last_touched=today - timedelta(days=60)),
         }
 
         result = select_due([bob, alice], states, today, config)
-        assert [c.name for c in result] == ["bob", "alice"]
+        assert [c.name for c in result] == ["Bob", "Alice"]

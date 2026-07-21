@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pymonad.either import Right
 
-from cli_friendkeeper.errors import ContactAlreadyExistsError, ContactNotFoundError
+from cli_friendkeeper.errors import ContactNotFoundError
 from cli_friendkeeper.models import Contact, ContactState, LogEntry
 from cli_friendkeeper.repository import ContactRepo, LogRepo, StateRepo
 
@@ -27,27 +27,15 @@ class FakeStore:
 
 
 class TestContactRepo:
-    def test_given_empty_repo_when_adding_contact_then_can_get_by_name(self) -> None:
+    def test_given_empty_repo_when_adding_contact_then_can_get_by_id(self) -> None:
         store = FakeStore()
         repo = ContactRepo(store, Path("/tmp"))
-        contact = Contact(name="jdoe", display_name="Jane Doe")
+        contact = Contact(id="test-uuid-jdoe", name="Jane Doe")
 
         result = repo.add(contact)
 
         assert result == Right(None)
-        assert repo.get("jdoe") == Right(contact)
-
-    def test_given_existing_contact_when_adding_duplicate_name_then_returns_left(
-        self,
-    ) -> None:
-        store = FakeStore()
-        repo = ContactRepo(store, Path("/tmp"))
-        repo.add(Contact(name="jdoe", display_name="Jane Doe"))
-
-        result = repo.add(Contact(name="JDOE", display_name="Jane Roe"))
-
-        assert result.is_left()
-        assert isinstance(result.monoid[0], ContactAlreadyExistsError)
+        assert repo.get("test-uuid-jdoe") == Right(contact)
 
     def test_given_empty_repo_when_getting_non_existent_then_returns_left(
         self,
@@ -55,35 +43,36 @@ class TestContactRepo:
         store = FakeStore()
         repo = ContactRepo(store, Path("/tmp"))
 
-        result = repo.get("nobody")
+        result = repo.get("nonexistent-id")
 
         assert result.is_left()
         err = result.monoid[0]
         assert isinstance(err, ContactNotFoundError)
-        assert err.name == "nobody"
+        assert err.contact_id == "nonexistent-id"
 
     def test_given_multiple_contacts_when_all_then_sorted_by_name(
         self,
     ) -> None:
         store = FakeStore()
         repo = ContactRepo(store, Path("/tmp"))
-        repo.add(Contact(name="zed", display_name="Zed"))
-        repo.add(Contact(name="alice", display_name="Alice"))
-        repo.add(Contact(name="bob", display_name="Bob"))
+        repo.add(Contact(id="uuid-zed", name="Zed"))
+        repo.add(Contact(id="uuid-alice", name="Alice"))
+        repo.add(Contact(id="uuid-bob", name="Bob"))
 
         contacts = repo.all()
 
-        assert [c.name for c in contacts] == ["alice", "bob", "zed"]
+        assert [c.name for c in contacts] == ["Alice", "Bob", "Zed"]
 
     def test_given_existing_contact_when_removing_then_gone(self) -> None:
         store = FakeStore()
         repo = ContactRepo(store, Path("/tmp"))
-        repo.add(Contact(name="jdoe", display_name="Jane Doe"))
+        contact = Contact(id="test-uuid-jdoe", name="Jane Doe")
+        repo.add(contact)
 
-        result = repo.remove("jdoe")
+        result = repo.remove(contact.id)
 
         assert result == Right(None)
-        assert repo.get("jdoe").is_left()
+        assert repo.get(contact.id).is_left()
 
     def test_given_empty_repo_when_removing_non_existent_then_returns_left(
         self,
@@ -91,35 +80,35 @@ class TestContactRepo:
         store = FakeStore()
         repo = ContactRepo(store, Path("/tmp"))
 
-        result = repo.remove("nobody")
+        result = repo.remove("nonexistent-id")
 
         assert result.is_left()
         err = result.monoid[0]
         assert isinstance(err, ContactNotFoundError)
-        assert err.name == "nobody"
+        assert err.contact_id == "nonexistent-id"
 
 
 class TestStateRepo:
-    def test_given_empty_repo_when_upserting_then_can_get_by_name(self) -> None:
+    def test_given_empty_repo_when_upserting_then_can_get_by_id(self) -> None:
         store = FakeStore()
         repo = StateRepo(store, Path("/tmp"))
-        state = ContactState(name="jdoe", touch_count=1)
+        state = ContactState(id="test-uuid-jdoe", name="jdoe", touch_count=1)
 
         result = repo.upsert(state)
 
         assert result == Right(None)
-        assert repo.get("jdoe") == Right(state)
+        assert repo.get("test-uuid-jdoe") == Right(state)
 
     def test_given_existing_state_when_upserting_then_updates(self) -> None:
         store = FakeStore()
         repo = StateRepo(store, Path("/tmp"))
-        repo.upsert(ContactState(name="jdoe", touch_count=1))
+        repo.upsert(ContactState(id="test-uuid-jdoe", name="jdoe", touch_count=1))
 
-        updated = ContactState(name="jdoe", touch_count=5)
+        updated = ContactState(id="test-uuid-jdoe", name="jdoe", touch_count=5)
         result = repo.upsert(updated)
 
         assert result == Right(None)
-        assert repo.get("jdoe") == Right(updated)
+        assert repo.get("test-uuid-jdoe") == Right(updated)
 
     def test_given_empty_repo_when_getting_non_existent_then_returns_left(
         self,
@@ -127,23 +116,23 @@ class TestStateRepo:
         store = FakeStore()
         repo = StateRepo(store, Path("/tmp"))
 
-        result = repo.get("nobody")
+        result = repo.get("nonexistent-id")
 
         assert result.is_left()
         err = result.monoid[0]
         assert isinstance(err, ContactNotFoundError)
-        assert err.name == "nobody"
+        assert err.contact_id == "nonexistent-id"
 
     def test_given_multiple_states_when_all_then_sorted_by_name(self) -> None:
         store = FakeStore()
         repo = StateRepo(store, Path("/tmp"))
-        repo.upsert(ContactState(name="zed"))
-        repo.upsert(ContactState(name="alice"))
-        repo.upsert(ContactState(name="bob"))
+        repo.upsert(ContactState(id="uuid-zed", name="Zed"))
+        repo.upsert(ContactState(id="uuid-alice", name="Alice"))
+        repo.upsert(ContactState(id="uuid-bob", name="Bob"))
 
         states = repo.all()
 
-        assert [s.name for s in states] == ["alice", "bob", "zed"]
+        assert [s.name for s in states] == ["Alice", "Bob", "Zed"]
 
 
 class TestLogRepo:
@@ -153,11 +142,13 @@ class TestLogRepo:
         entry1 = LogEntry(
             timestamp=datetime(2025, 6, 1, 12, 0, 0),
             action="add",
+            id="test-uuid-jdoe",
             name="jdoe",
         )
         entry2 = LogEntry(
             timestamp=datetime(2025, 6, 2, 12, 0, 0),
             action="touch",
+            id="test-uuid-jdoe",
             name="jdoe",
         )
 

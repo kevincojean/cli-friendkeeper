@@ -58,14 +58,14 @@ def test_given_two_active_contacts_when_run_list_then_table_shows_both(capsys: A
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="casual"),
-        Contact(name="bob", display_name="Bob", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="casual"),
+        Contact(id="uuid-bob", name="Bob", priority="deep"),
     ])
     store.write_jsonl_atomic(
         data_dir / "state.jsonl",
         [
-            ContactState(name="alice", last_touched=date(2026, 6, 1)).to_dict(),
-            ContactState(name="bob", last_touched=date(2026, 7, 1)).to_dict(),
+            ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 6, 1)).to_dict(),
+            ContactState(id="uuid-bob", name="Bob", last_touched=date(2026, 7, 1)).to_dict(),
         ],
     )
 
@@ -75,8 +75,8 @@ def test_given_two_active_contacts_when_run_list_then_table_shows_both(capsys: A
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "alice" in captured.out
-    assert "bob" in captured.out
+    assert "Alice" in captured.out
+    assert "Bob" in captured.out
 
 
 def test_given_priority_deep_when_run_list_then_only_deep_contacts_shown(capsys: Any, tmp_path: Path) -> None:
@@ -90,9 +90,9 @@ def test_given_priority_deep_when_run_list_then_only_deep_contacts_shown(capsys:
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
-        Contact(name="bob", display_name="Bob", priority="casual"),
-        Contact(name="carol", display_name="Carol", priority="network"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
+        Contact(id="uuid-bob", name="Bob", priority="casual"),
+        Contact(id="uuid-carol", name="Carol", priority="network"),
     ])
 
     from cli_friendkeeper.ccli.task.run_list import run
@@ -101,9 +101,9 @@ def test_given_priority_deep_when_run_list_then_only_deep_contacts_shown(capsys:
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "alice" in captured.out
-    assert "bob" not in captured.out
-    assert "carol" not in captured.out
+    assert "Alice" in captured.out
+    assert "Bob" not in captured.out
+    assert "Carol" not in captured.out
 
 
 def test_given_all_flag_when_run_list_then_removed_contacts_are_shown(capsys: Any, tmp_path: Path) -> None:
@@ -117,14 +117,14 @@ def test_given_all_flag_when_run_list_then_removed_contacts_are_shown(capsys: An
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="casual"),
-        Contact(name="bob", display_name="Bob", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="casual"),
+        Contact(id="uuid-bob", name="Bob", priority="deep"),
     ])
     store.write_jsonl_atomic(
         data_dir / "state.jsonl",
         [
-            ContactState(name="alice").to_dict(),
-            ContactState(name="bob", removed=True).to_dict(),
+            ContactState(id="uuid-alice", name="Alice").to_dict(),
+            ContactState(id="uuid-bob", name="Bob", removed=True).to_dict(),
         ],
     )
 
@@ -134,8 +134,8 @@ def test_given_all_flag_when_run_list_then_removed_contacts_are_shown(capsys: An
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "alice" in captured.out
-    assert "bob" in captured.out
+    assert "Alice" in captured.out
+    assert "Bob" in captured.out
 
 
 def test_given_json_flag_when_run_list_then_returns_valid_json_with_expected_fields(capsys: Any, tmp_path: Path) -> None:
@@ -151,11 +151,11 @@ def test_given_json_flag_when_run_list_then_returns_valid_json_with_expected_fie
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
     ])
     store.write_jsonl_atomic(
         data_dir / "state.jsonl",
-        [ContactState(name="alice", last_touched=date(2026, 6, 1)).to_dict()],
+        [ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 6, 1)).to_dict()],
     )
 
     from cli_friendkeeper.ccli.task.run_list import run
@@ -167,8 +167,9 @@ def test_given_json_flag_when_run_list_then_returns_valid_json_with_expected_fie
     data = json.loads(captured.out)
     assert isinstance(data, list)
     assert len(data) == 1
-    assert data[0]["name"] == "alice"
-    assert data[0]["display_name"] == "Alice"
+    assert data[0]["id"] == "uuid-alice"
+    assert data[0]["name"] == "Alice"
+    assert "display_name" not in data[0]
     assert data[0]["priority"] == "deep"
     assert data[0]["days_since_touched"] == 49
     assert data[0]["last_touched"] == "2026-06-01"
@@ -188,11 +189,11 @@ def test_given_removed_contact_without_all_when_run_list_then_prints_no_contacts
     ctx = FakeContext(contacts, states, clock, config)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="casual"),
+        Contact(id="uuid-alice", name="Alice", priority="casual"),
     ])
     store.write_jsonl_atomic(
         data_dir / "state.jsonl",
-        [ContactState(name="alice", removed=True).to_dict()],
+        [ContactState(id="uuid-alice", name="Alice", removed=True).to_dict()],
     )
 
     from cli_friendkeeper.ccli.task.run_list import run

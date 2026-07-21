@@ -48,25 +48,26 @@ def run(args: list[str], ctx: Context) -> int:
     entries = ctx.log.all()
     ctx.contacts.all()
 
-    state_by_name: dict[str, ContactState] = {}
+    state_by_id: dict[str, ContactState] = {}
 
     for entry in entries:
-        name = entry.name
+        cid = entry.id
         if entry.action == "add":
-            if name not in state_by_name:
-                state_by_name[name] = ContactState(
-                    name=name,
+            if cid not in state_by_id:
+                state_by_id[cid] = ContactState(
+                    id=cid,
+                    name=entry.name,
                     last_touched=None,
                     touch_count=0,
                 )
         elif entry.action == "touch":
-            if name in state_by_name:
-                state_by_name[name].last_touched = entry.timestamp.date()
-                state_by_name[name].touch_count += 1
+            if cid in state_by_id:
+                state_by_id[cid].last_touched = entry.timestamp.date()
+                state_by_id[cid].touch_count += 1
         elif entry.action == "remove":
-            if name in state_by_name:
-                state_by_name[name].removed = True
-                state_by_name[name].removed_at = entry.timestamp.date()
+            if cid in state_by_id:
+                state_by_id[cid].removed = True
+                state_by_id[cid].removed_at = entry.timestamp.date()
         elif entry.action == "rebuild-state":
             pass
 
@@ -76,7 +77,7 @@ def run(args: list[str], ctx: Context) -> int:
 
     write_jsonl_atomic(
         ctx.data_dir / "state.jsonl",
-        [s.to_dict() for s in state_by_name.values()],
+        [s.to_dict() for s in state_by_id.values()],
     )
     typer.echo(f"Rebuilt state from {len(entries)} log entries.")
     return 0

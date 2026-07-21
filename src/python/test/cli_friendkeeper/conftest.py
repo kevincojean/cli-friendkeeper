@@ -85,8 +85,8 @@ def log_repo(fake_store: FakeStore, tmp_data_dir: Path) -> LogRepo:
 @pytest.fixture
 def sample_contact() -> Contact:
     return Contact(
-        name="alice",
-        display_name="Alice Smith",
+        id="test-uuid-alice",
+        name="Alice Smith",
         email="alice@example.com",
         priority="deep",
         cadence_days=7,
@@ -98,7 +98,8 @@ def sample_contact() -> Contact:
 @pytest.fixture
 def sample_state() -> ContactState:
     return ContactState(
-        name="alice",
+        id="test-uuid-alice",
+        name="Alice Smith",
         last_touched=date(2026, 1, 1),
         touch_count=1,
         removed=False,

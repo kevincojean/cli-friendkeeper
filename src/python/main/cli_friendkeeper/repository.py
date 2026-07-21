@@ -14,7 +14,6 @@ from typing import Any
 from pymonad.either import Either, Left, Right
 
 from cli_friendkeeper.errors import (
-    ContactAlreadyExistsError,
     ContactNotFoundError,
     FriendError,
 )
@@ -40,23 +39,15 @@ class ContactRepo:
         )
 
     def add(self, contact: Contact) -> Either[FriendError, None]:
-        existing = self._read_contacts()
-        for c in existing:
-            if c.name.lower() == contact.name.lower():
-                return Left(
-                    ContactAlreadyExistsError(
-                        f"Contact '{contact.name}' already exists"
-                    )
-                )
         self._store.append_jsonl(self._contacts_path, contact.to_dict())
         return Right(None)
 
-    def get(self, name: str) -> Either[FriendError, Contact]:
+    def get(self, contact_id: str) -> Either[FriendError, Contact]:
         for c in self._read_contacts():
-            if c.name.lower() == name.lower():
+            if c.id == contact_id:
                 return Right(c)
         return Left(
-            ContactNotFoundError(f"Contact '{name}' not found", name=name)
+            ContactNotFoundError(f"Contact '{contact_id}' not found", contact_id=contact_id)
         )
 
     def all(self) -> list[Contact]:
@@ -64,13 +55,13 @@ class ContactRepo:
         contacts.sort(key=lambda c: c.name.lower())
         return contacts
 
-    def remove(self, name: str) -> Either[FriendError, None]:
+    def remove(self, contact_id: str) -> Either[FriendError, None]:
         existing = self._read_contacts()
-        filtered = [c for c in existing if c.name.lower() != name.lower()]
+        filtered = [c for c in existing if c.id != contact_id]
         if len(filtered) == len(existing):
             return Left(
                 ContactNotFoundError(
-                    f"Contact '{name}' not found", name=name
+                    f"Contact '{contact_id}' not found", contact_id=contact_id
                 )
             )
         self._write_contacts(filtered)
@@ -90,21 +81,21 @@ class StateRepo:
         raw = self._store.read_jsonl(self._state_path)
         return [ContactState.from_dict(d) for d in raw]
 
-    def get(self, name: str) -> Either[FriendError, ContactState]:
+    def get(self, contact_id: str) -> Either[FriendError, ContactState]:
         for s in self._read_states():
-            if s.name.lower() == name.lower():
+            if s.id == contact_id:
                 return Right(s)
         return Left(
-            ContactNotFoundError(f"State for '{name}' not found", name=name)
+            ContactNotFoundError(f"State for '{contact_id}' not found", contact_id=contact_id)
         )
 
     def upsert(self, state: ContactState) -> Either[FriendError, None]:
         existing = self._read_states()
         new_list = [
-            state if s.name.lower() == state.name.lower() else s
+            state if s.id == state.id else s
             for s in existing
         ]
-        if all(s.name.lower() != state.name.lower() for s in existing):
+        if all(s.id != state.id for s in existing):
             new_list.append(state)
         self._store.write_jsonl_atomic(
             self._state_path, [s.to_dict() for s in new_list]

@@ -39,19 +39,19 @@ def test_given_contact_exists_when_remove_with_force_then_removes_contact(
     ctx = FakeContext(contacts, states, log, clock, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", email="alice@example.com"),
+        Contact(id="uuid-alice", name="Alice", email="alice@example.com"),
     ])
 
     from cli_friendkeeper.ccli.task.run_remove import run
 
-    rc = run(["alice", "--force"], ctx)
+    rc = run(["uuid-alice", "--force"], ctx)
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "Removed: alice" in captured.out
+    assert "Removed: Alice" in captured.out
     assert contacts.all() == []
 
-    state_result = states.get("alice")
+    state_result = states.get("uuid-alice")
     assert state_result.is_right()
     state = state_result.value
     assert state.removed is True
@@ -60,7 +60,8 @@ def test_given_contact_exists_when_remove_with_force_then_removes_contact(
     log_entries = log.all()
     assert len(log_entries) == 1
     assert log_entries[0].action == "remove"
-    assert log_entries[0].name == "alice"
+    assert log_entries[0].id == "uuid-alice"
+    assert log_entries[0].name == "Alice"
 
 
 def test_given_contact_exists_when_remove_without_force_and_yes_then_removes(
@@ -76,18 +77,18 @@ def test_given_contact_exists_when_remove_without_force_and_yes_then_removes(
     ctx = FakeContext(contacts, states, log, clock, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", email="alice@example.com"),
+        Contact(id="uuid-alice", name="Alice", email="alice@example.com"),
     ])
 
     monkeypatch.setattr("builtins.input", lambda prompt="": "y")
 
     from cli_friendkeeper.ccli.task.run_remove import run
 
-    rc = run(["alice"], ctx)
+    rc = run(["uuid-alice"], ctx)
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "Removed: alice" in captured.out
+    assert "Removed: Alice" in captured.out
     assert contacts.all() == []
 
 
@@ -104,21 +105,21 @@ def test_given_contact_exists_when_remove_without_force_and_no_then_cancelled(
     ctx = FakeContext(contacts, states, log, clock, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", email="alice@example.com"),
+        Contact(id="uuid-alice", name="Alice", email="alice@example.com"),
     ])
 
     monkeypatch.setattr("builtins.input", lambda prompt="": "n")
 
     from cli_friendkeeper.ccli.task.run_remove import run
 
-    rc = run(["alice"], ctx)
+    rc = run(["uuid-alice"], ctx)
     captured = capsys.readouterr()
 
     assert rc == 0
     assert "Cancelled." in captured.out
     assert len(contacts.all()) == 1
 
-    state_result = states.get("alice")
+    state_result = states.get("uuid-alice")
     assert state_result.is_left()
 
 
@@ -136,7 +137,7 @@ def test_given_non_existent_contact_when_remove_then_returns_one(
 
     from cli_friendkeeper.ccli.task.run_remove import run
 
-    rc = run(["nonexistent", "--force"], ctx)
+    rc = run(["nonexistent-id", "--force"], ctx)
     captured = capsys.readouterr()
 
     assert rc == 1
@@ -156,16 +157,16 @@ def test_given_already_removed_contact_when_remove_then_returns_one(
     ctx = FakeContext(contacts, states, log, clock, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", email="alice@example.com"),
+        Contact(id="uuid-alice", name="Alice", email="alice@example.com"),
     ])
 
     from cli_friendkeeper.ccli.task.run_remove import run
 
-    rc1 = run(["alice", "--force"], ctx)
+    rc1 = run(["uuid-alice", "--force"], ctx)
     assert rc1 == 0
     capsys.readouterr()
 
-    rc2 = run(["alice", "--force"], ctx)
+    rc2 = run(["uuid-alice", "--force"], ctx)
     captured2 = capsys.readouterr()
 
     assert rc2 == 1

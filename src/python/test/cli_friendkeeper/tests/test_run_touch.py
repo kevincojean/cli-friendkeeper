@@ -44,20 +44,19 @@ def test_given_existing_contact_when_touched_then_updates_state_and_appends_log(
     ctx = FakeContext(contacts, states, log, clock, config, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
     ])
 
     from cli_friendkeeper.ccli.task.run_touch import run
 
-    rc = run(["alice"], ctx)
+    rc = run(["uuid-alice"], ctx)
     captured = capsys.readouterr()
 
     assert rc == 0
-    assert "alice" in captured.out
-    assert "2026-01-01" in captured.out
-    assert "total: 1" in captured.out
+    assert "Touched: Alice" in captured.out
+    assert "uuid-alice" in captured.out
 
-    state_result = states.get("alice")
+    state_result = states.get("uuid-alice")
     assert not state_result.is_left()
     state = state_result.value
     assert state.last_touched == date(2026, 1, 1)
@@ -66,7 +65,8 @@ def test_given_existing_contact_when_touched_then_updates_state_and_appends_log(
     entries = log.all()
     assert len(entries) == 1
     assert entries[0].action == "touch"
-    assert entries[0].name == "alice"
+    assert entries[0].id == "uuid-alice"
+    assert entries[0].name == "Alice"
     assert entries[0].payload == {"note": ""}
 
 
@@ -83,7 +83,7 @@ def test_given_nonexistent_contact_when_touched_then_returns_one_with_not_found(
 
     from cli_friendkeeper.ccli.task.run_touch import run
 
-    rc = run(["unknown"], ctx)
+    rc = run(["unknown-id"], ctx)
     captured = capsys.readouterr()
 
     assert rc == 1
@@ -102,20 +102,20 @@ def test_given_removed_contact_when_touched_then_returns_one_with_removed(capsys
     ctx = FakeContext(contacts, states, log, clock, config, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
     ])
     store.write_jsonl_atomic(
         data_dir / "state.jsonl",
         [
             ContactState(
-                name="alice", removed=True, removed_at=date(2026, 1, 1)
+                id="uuid-alice", name="Alice", removed=True, removed_at=date(2026, 1, 1)
             ).to_dict()
         ],
     )
 
     from cli_friendkeeper.ccli.task.run_touch import run
 
-    rc = run(["alice"], ctx)
+    rc = run(["uuid-alice"], ctx)
     captured = capsys.readouterr()
 
     assert rc == 1
@@ -134,19 +134,19 @@ def test_given_existing_contact_when_touched_twice_then_touch_count_equals_two(c
     ctx = FakeContext(contacts, states, log, clock, config, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
     ])
 
     from cli_friendkeeper.ccli.task.run_touch import run
 
-    rc1 = run(["alice"], ctx)
+    rc1 = run(["uuid-alice"], ctx)
     assert rc1 == 0
     capsys.readouterr()
 
-    rc2 = run(["alice"], ctx)
+    rc2 = run(["uuid-alice"], ctx)
     assert rc2 == 0
 
-    state_result = states.get("alice")
+    state_result = states.get("uuid-alice")
     assert not state_result.is_left()
     state = state_result.value
     assert state.touch_count == 2
@@ -164,12 +164,12 @@ def test_given_note_flag_when_touched_then_log_payload_contains_note(capsys: Any
     ctx = FakeContext(contacts, states, log, clock, config, data_dir)
 
     contacts._write_contacts([
-        Contact(name="alice", display_name="Alice", priority="deep"),
+        Contact(id="uuid-alice", name="Alice", priority="deep"),
     ])
 
     from cli_friendkeeper.ccli.task.run_touch import run
 
-    rc = run(["alice", "--note", "Sent birthday wishes"], ctx)
+    rc = run(["uuid-alice", "--note", "Sent birthday wishes"], ctx)
     assert rc == 0
 
     entries = log.all()

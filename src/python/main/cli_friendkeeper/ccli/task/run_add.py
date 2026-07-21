@@ -1,7 +1,7 @@
 """Add a new contact.
 
 Usage:
-    friend add --name <display-name> [--email <email>] [--phone <number>]
+    friend add --name <name> [--email <email>] [--phone <number>]
                [--priority <deep|casual|network>] [--cadence-days <n>]
                [--notes <text>]
 """
@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 import typer
 
@@ -19,7 +20,7 @@ from cli_friendkeeper.models import Contact, LogEntry
 def _print_usage() -> None:
     """Print usage help to stderr."""
     typer.echo(
-        "Usage: friend add --name <display-name> [--email <email>] [--phone <number>]"
+        "Usage: friend add --name <name> [--email <email>] [--phone <number>]"
         " [--priority <deep|casual|network>] [--cadence-days <n>] [--notes <text>]",
         err=True,
     )
@@ -36,7 +37,6 @@ def run(args: list[str], ctx: Any) -> int:
         return 0
 
     name_val: str | None = None
-    display_name_val: str | None = None
     email_val: str | None = None
     phone_val: str | None = None
     priority_val: str = "casual"
@@ -46,11 +46,7 @@ def run(args: list[str], ctx: Any) -> int:
     i = 0
     while i < len(args):
         if args[i] == "--name" and i + 1 < len(args):
-            display_name_val = args[i + 1]
-            # Keep spaces through the filter so .replace(" ", "-") works
-            name_val = "".join(
-                c.lower() for c in display_name_val if c.isalnum() or c in "-_ "
-            ).replace(" ", "-")
+            name_val = args[i + 1]
             i += 2
         elif args[i] == "--email" and i + 1 < len(args):
             email_val = args[i + 1]
@@ -81,9 +77,10 @@ def run(args: list[str], ctx: Any) -> int:
         typer.echo("Error: at least one of --email or --phone is required", err=True)
         return 1
 
+    contact_id = str(uuid4())
     contact = Contact(
+        id=contact_id,
         name=name_val,
-        display_name=display_name_val or name_val,
         email=email_val,
         phone=phone_val,
         priority=priority_val,  # type: ignore[arg-type]
@@ -110,6 +107,7 @@ def run(args: list[str], ctx: Any) -> int:
     entry = LogEntry(
         timestamp=ctx.clock.now(),
         action="add",
+        id=contact_id,
         name=name_val,
         payload={
             "email": email_val,
@@ -119,5 +117,5 @@ def run(args: list[str], ctx: Any) -> int:
     )
     ctx.log.append(entry)
 
-    typer.echo(f"Added: {name_val} ({display_name_val or name_val})")
+    typer.echo(f"Added: {contact.name} (id: {contact.id})")
     return 0
