@@ -1,28 +1,42 @@
 """List subcommand — list all contacts with optional filtering.
 
 Usage:
-    friend list [--priority <prio>] [--all] [--json]
+    friend list [--priority <prio>] [--all] [--acquaintances] [--json]
 
 Parses flags, retrieves contacts, and prints a table (or JSON) sorted by
-days-since-touched descending (most overdue first), then name ascending.
+priority group (configurable order/direction), then due date, then name.
+Acquaintance-priority contacts are hidden by default.
 """
 
 from __future__ import annotations
 
 import json
+from datetime import date
 
 import typer
 
 from cli_friendkeeper.ccli.ccli import Context
-from cli_friendkeeper.check_logic import days_since_touched, is_due
-from cli_friendkeeper.config import effective_cadence
+from cli_friendkeeper.check_logic import days_since_touched, due_date
+from cli_friendkeeper.config import DEFAULT_PRIORITY_ORDER, effective_cadence
 from cli_friendkeeper.models import Contact, ContactState
+
+
+def _due_sort_key(dd: date | None, direction: str) -> int:
+    """Return a numeric sort key for due date.
+
+    For ``asc``: earliest date first (ordinal, None at end).
+    For ``desc``: latest date first (negated ordinal, None at end).
+    """
+    if dd is not None:
+        return dd.toordinal() if direction == "asc" else -dd.toordinal()
+    # None — always at the end
+    return date.max.toordinal() if direction == "asc" else 0
 
 
 def _print_usage() -> None:
     """Print usage help to stderr."""
     typer.echo(
-        "Usage: friend list [--priority <prio>] [--all] [--json]",
+        "Usage: friend list [--priority <prio>] [--all] [--acquaintances] [--json]",
         err=True,
     )
 
@@ -34,6 +48,7 @@ def run(args: list[str], ctx: Context) -> int:
     priority_filter: str | None = None
     show_all = False
     as_json = False
+    show_acquaintances = False
 
     i = 0
     while i < len(args):
@@ -45,6 +60,9 @@ def run(args: list[str], ctx: Context) -> int:
             i += 1
         elif args[i] == "--json":
             as_json = True
+            i += 1
+        elif args[i] == "--acquaintances":
+            show_acquaintances = True
             i += 1
         else:
             typer.echo(f"Unknown flag: {args[i]}", err=True)
@@ -71,6 +89,14 @@ def run(args: list[str], ctx: Context) -> int:
         typer.echo("No contacts yet.")
         return 0
 
+    # Default: hide acquaintances unless --acquaintances or config override
+    if not show_acquaintances and ctx.config.list_hide_acquaintances:
+        contacts = [c for c in contacts if c.priority != "acquaintance"]
+
+    if not contacts:
+        typer.echo("No contacts yet.")
+        return 0
+
     if priority_filter is not None:
         contacts = [c for c in contacts if c.priority == priority_filter]
 
@@ -78,14 +104,29 @@ def run(args: list[str], ctx: Context) -> int:
         typer.echo("No contacts yet.")
         return 0
 
-    # Sort: days_since_touched desc (None = 9999), then name asc
+    # Sort: by priority order (configurable direction), then due date, then name
+    priority_order = list(ctx.config.priority_order or DEFAULT_PRIORITY_ORDER)
+    priority_idx = {p: i for i, p in enumerate(priority_order)}
+    pri_dir = ctx.config.list_sort_priority or "asc"
+    due_dir = ctx.config.list_sort_due_date or "desc"
+
     contacts = sorted(
         contacts,
         key=lambda c: (
-            -(days_since_touched(
-                states.get(c.id, ContactState(id=c.id, name=c.name)), today
-            )
-            or 9999),
+            # Priority key: index in priority_order, negated for DESC
+            (priority_idx.get(c.priority, len(priority_order)))
+            if pri_dir == "asc"
+            else -(priority_idx.get(c.priority, len(priority_order))),
+            # Due date key
+            _due_sort_key(
+                due_date(
+                    states.get(c.id, ContactState(id=c.id, name=c.name)),
+                    c,
+                    today,
+                    effective_cadence(ctx.config, c.priority, c.cadence_days),
+                ),
+                due_dir,
+            ),
             c.name.lower(),
         ),
     )
@@ -96,6 +137,7 @@ def run(args: list[str], ctx: Context) -> int:
             state = states.get(c.id, ContactState(id=c.id, name=c.name))
             ds = days_since_touched(state, today)
             cadence = effective_cadence(ctx.config, c.priority, c.cadence_days)
+            dd = due_date(state, c, today, cadence)
             d: dict[str, object] = {
                 "id": c.id,
                 "name": c.name,
@@ -107,7 +149,7 @@ def run(args: list[str], ctx: Context) -> int:
                     else None
                 ),
                 "cadence": cadence,
-                "due": is_due(state, c, today, cadence),
+                "due_date": dd.isoformat() if dd is not None else None,
                 "removed": state.removed,
             }
             output.append(d)
@@ -127,7 +169,7 @@ def _print_table(
     date_fmt = "%Y-%m-%d"
     header = (
         f"{'ID':<10} {'Name':<20} {'Priority':<10} "
-        f"{'Days Since':<12} {'Last Touched':<15} {'Cadence':<8} {'Due?':<6}"
+        f"{'Days Since':<12} {'Last Touched':<15} {'Cadence':<8} {'Due Date':<12}"
     )
     sep = "-" * len(header)
 
@@ -138,7 +180,7 @@ def _print_table(
         state = states.get(c.id, ContactState(id=c.id, name=c.name))
         ds = days_since_touched(state, today)
         cadence = effective_cadence(ctx.config, c.priority, c.cadence_days)
-        due = is_due(state, c, today, cadence)
+        dd = due_date(state, c, today, cadence)
 
         days_str = f"{ds}" if ds is not None else "Never"
         last_str = (
@@ -146,9 +188,9 @@ def _print_table(
             if state.last_touched
             else "—"
         )
-        due_str = "Y" if due else "N"
+        due_str = dd.strftime(date_fmt) if dd is not None else "—"
 
         typer.echo(
             f"{c.id[:8]:<10} {c.name:<20} {c.priority:<10} "
-            f"{days_str:<12} {last_str:<15} {cadence:<8} {due_str:<6}"
+            f"{days_str:<12} {last_str:<15} {cadence:<8} {due_str:<12}"
         )

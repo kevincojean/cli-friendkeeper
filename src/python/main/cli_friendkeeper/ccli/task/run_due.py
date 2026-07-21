@@ -13,8 +13,9 @@ import json
 
 import typer
 
-from cli_friendkeeper.check_logic import days_since_touched, select_due
+from cli_friendkeeper.check_logic import days_since_touched, due_date, select_due
 from cli_friendkeeper.ccli.ccli import Context
+from cli_friendkeeper.config import effective_cadence
 
 
 def _print_usage() -> None:
@@ -73,11 +74,14 @@ def run(args: list[str], ctx: Context) -> int:
         output: list[dict[str, object]] = []
         for c in due:
             state = states.get(c.id)
+            cadence = effective_cadence(ctx.config, c.priority, c.cadence_days)
+            dd = due_date(state, c, today, cadence) if state is not None else None
             d: dict[str, object] = {
                 "id": c.id,
                 "name": c.name,
                 "priority": c.priority,
                 "notes": c.notes,
+                "due_date": dd.isoformat() if dd is not None else None,
             }
             if state is not None:
                 d["days_since_touched"] = days_since_touched(state, today)

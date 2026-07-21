@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from cli_friendkeeper.check_logic import days_since_touched, is_due, select_due
+from cli_friendkeeper.check_logic import days_since_touched, due_date, is_due, select_due
 from cli_friendkeeper.config import Config
 from cli_friendkeeper.models import Contact, ContactState
 
@@ -69,6 +69,40 @@ class TestDaysSinceTouched:
         state = ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 7, 19))
         today = date(2026, 7, 20)
         assert days_since_touched(state, today) == 1
+
+
+class TestDueDate:
+    def test_given_never_touched_when_due_date_then_returns_added_at(self) -> None:
+        """given never touched when due_date then returns added_at (perpetually overdue)"""
+        contact = Contact(id="uuid-alice", name="Alice", added_at=date(2026, 1, 1))
+        state = ContactState(id="uuid-alice", name="Alice")
+        today = date(2026, 7, 20)
+        assert due_date(state, contact, today, cadence=30) == date(2026, 1, 1)
+
+    def test_given_touched_contact_when_due_date_then_returns_last_touched_plus_cadence(self) -> None:
+        """given touched contact when due_date then returns last_touched + cadence"""
+        contact = Contact(id="uuid-alice", name="Alice")
+        state = ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 6, 1))
+        today = date(2026, 7, 20)
+        assert due_date(state, contact, today, cadence=30) == date(2026, 7, 1)
+
+    def test_given_cadence_zero_when_due_date_then_returns_none(self) -> None:
+        """given cadence=0 when due_date then returns None"""
+        contact = Contact(id="uuid-alice", name="Alice")
+        state = ContactState(id="uuid-alice", name="Alice", last_touched=date(2026, 6, 1))
+        today = date(2026, 7, 20)
+        assert due_date(state, contact, today, cadence=0) is None
+
+    def test_given_removed_contact_when_due_date_then_returns_none(self) -> None:
+        """given removed contact when due_date then returns None"""
+        contact = Contact(id="uuid-alice", name="Alice")
+        state = ContactState(
+            id="uuid-alice", name="Alice",
+            last_touched=date(2026, 1, 1),
+            removed=True, removed_at=date(2026, 6, 1),
+        )
+        today = date(2026, 7, 20)
+        assert due_date(state, contact, today, cadence=30) is None
 
 
 class TestSelectDue:

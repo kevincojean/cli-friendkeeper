@@ -28,6 +28,8 @@ DEFAULT_SUBCOMMAND: str = "due"
 
 VALID_PRIORITIES = frozenset(DEFAULT_CADENCE.keys())
 
+DEFAULT_PRIORITY_ORDER: list[str] = ["acquaintance", "network", "casual", "deep"]
+
 VALID_SUBCOMMANDS = frozenset({
     "add",
     "catch-up",
@@ -47,10 +49,22 @@ class Config:
     snooze: dict[str, int] | None = None
     default_priority: str = DEFAULT_PRIORITY
     default_subcommand: str = DEFAULT_SUBCOMMAND
+    priority_order: list[str] | None = None
+    list_hide_acquaintances: bool | None = None
+    list_sort_priority: str | None = None
+    list_sort_due_date: str | None = None
 
     def __post_init__(self) -> None:
         if self.snooze is None:
             self.snooze = dict(DEFAULT_SNOOZE)
+        if self.priority_order is None:
+            self.priority_order = list(DEFAULT_PRIORITY_ORDER)
+        if self.list_hide_acquaintances is None:
+            self.list_hide_acquaintances = True
+        if self.list_sort_priority is None:
+            self.list_sort_priority = "asc"
+        if self.list_sort_due_date is None:
+            self.list_sort_due_date = "desc"
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -80,6 +94,10 @@ def load_config(path: Path | None = None) -> Config:
         snooze=raw.get("snooze"),
         default_priority=default_priority,
         default_subcommand=default_subcommand,
+        priority_order=raw.get("priority_order"),
+        list_hide_acquaintances=raw.get("list_hide_acquaintances"),
+        list_sort_priority=raw.get("list_sort_priority"),
+        list_sort_due_date=raw.get("list_sort_due_date"),
     )
 
 
@@ -111,6 +129,39 @@ def _validate(raw: Any, path: Path) -> None:
                     f"{path}: 'snooze' values must be integers, got {type(val).__name__} for key {key!r}"
                 )
 
+    priority_order = raw.get("priority_order")
+    if priority_order is not None:
+        if not isinstance(priority_order, list) or not all(
+            isinstance(p, str) for p in priority_order
+        ):
+            raise ConfigError(
+                f"{path}: 'priority_order' must be a list of strings, "
+                f"got {type(priority_order).__name__}"
+            )
+        for p in priority_order:
+            if p not in VALID_PRIORITIES:
+                raise ConfigError(
+                    f"{path}: 'priority_order' contains invalid priority {p!r}"
+                )
+
+    list_hide_acquaintances = raw.get("list_hide_acquaintances")
+    if list_hide_acquaintances is not None and not isinstance(list_hide_acquaintances, bool):
+        raise ConfigError(
+            f"{path}: 'list_hide_acquaintances' must be a boolean, "
+            f"got {type(list_hide_acquaintances).__name__}"
+        )
+
+    _validate_sort_key("list_sort_priority", raw, path)
+    _validate_sort_key("list_sort_due_date", raw, path)
+
+
+def _validate_sort_key(key: str, raw: dict[str, Any], path: Path) -> None:
+    val = raw.get(key)
+    if val is not None and val not in ("asc", "desc"):
+        raise ConfigError(
+            f"{path}: {key!r} must be 'asc' or 'desc', got {val!r}"
+        )
+
 
 def save_config(cfg: Config, path: Path | None = None) -> None:
     if path is None:
@@ -125,6 +176,14 @@ def save_config(cfg: Config, path: Path | None = None) -> None:
             payload["default_priority"] = cfg.default_priority
         if cfg.default_subcommand != DEFAULT_SUBCOMMAND:
             payload["default_subcommand"] = cfg.default_subcommand
+        if cfg.priority_order is not None and cfg.priority_order != DEFAULT_PRIORITY_ORDER:
+            payload["priority_order"] = cfg.priority_order
+        if cfg.list_hide_acquaintances is not None and cfg.list_hide_acquaintances is not True:
+            payload["list_hide_acquaintances"] = cfg.list_hide_acquaintances
+        if cfg.list_sort_priority is not None and cfg.list_sort_priority != "asc":
+            payload["list_sort_priority"] = cfg.list_sort_priority
+        if cfg.list_sort_due_date is not None and cfg.list_sort_due_date != "desc":
+            payload["list_sort_due_date"] = cfg.list_sort_due_date
         path.write_text(json.dumps(payload, indent=2) + "\n")
     except OSError as e:
         raise StorageError(f"could not write config to {path}: {e}") from e

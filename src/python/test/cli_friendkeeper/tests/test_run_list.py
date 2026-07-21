@@ -174,8 +174,113 @@ def test_given_json_flag_when_run_list_then_returns_valid_json_with_expected_fie
     assert data[0]["days_since_touched"] == 49
     assert data[0]["last_touched"] == "2026-06-01"
     assert data[0]["cadence"] == 15
-    assert data[0]["due"] is True
+    assert data[0]["due_date"] == "2026-06-16"
     assert data[0]["removed"] is False
+
+
+def test_given_acquaintance_contact_when_run_list_then_hidden_by_default(capsys: Any, tmp_path: Path) -> None:
+    """given acquaintance contact when run_list then hidden by default."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    clock = _clock(date(2026, 7, 20))
+    config = Config(cadence=DEFAULT_CADENCE)
+    ctx = FakeContext(contacts, states, clock, config)
+
+    contacts._write_contacts([
+        Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        Contact(id="uuid-bob", name="Bob", priority="casual"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_list import run
+
+    rc = run([], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "Alice" not in captured.out
+    assert "Bob" in captured.out
+
+
+def test_given_acquaintance_flag_when_run_list_then_shows_acquaintance(capsys: Any, tmp_path: Path) -> None:
+    """given --acquaintances flag when run_list then shows acquaintance contacts."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    clock = _clock(date(2026, 7, 20))
+    config = Config(cadence=DEFAULT_CADENCE)
+    ctx = FakeContext(contacts, states, clock, config)
+
+    contacts._write_contacts([
+        Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        Contact(id="uuid-bob", name="Bob", priority="casual"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_list import run
+
+    rc = run(["--acquaintances"], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "Alice" in captured.out
+    assert "Bob" in captured.out
+
+
+def test_given_acquaintance_contact_with_config_override_when_run_list_then_shown(capsys: Any, tmp_path: Path) -> None:
+    """given config.list_hide_acquaintances=False when run_list then acquaintance contacts shown."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    clock = _clock(date(2026, 7, 20))
+    config = Config(cadence=DEFAULT_CADENCE, list_hide_acquaintances=False)
+    ctx = FakeContext(contacts, states, clock, config)
+
+    contacts._write_contacts([
+        Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_list import run
+
+    rc = run([], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "Alice" in captured.out
+
+
+def test_given_contacts_with_varied_priorities_when_run_list_then_grouped_by_priority_order(capsys: Any, tmp_path: Path) -> None:
+    """given contacts with varied priorities when run_list then sorted by priority_order."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    clock = _clock(date(2026, 7, 20))
+    config = Config(cadence=DEFAULT_CADENCE, list_hide_acquaintances=False)
+    ctx = FakeContext(contacts, states, clock, config)
+
+    contacts._write_contacts([
+        Contact(id="uuid-deep", name="Deep1", priority="deep"),
+        Contact(id="uuid-casual", name="Casual1", priority="casual"),
+        Contact(id="uuid-network", name="Network1", priority="network"),
+        Contact(id="uuid-acq", name="Acq1", priority="acquaintance"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_list import run
+
+    rc = run([], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    # Default priority_order: acquaintance, network, casual, deep
+    lines = captured.out.split("\n")
+    acq_pos = next(i for i, l in enumerate(lines) if "Acq1" in l)
+    net_pos = next(i for i, l in enumerate(lines) if "Network1" in l)
+    cas_pos = next(i for i, l in enumerate(lines) if "Casual1" in l)
+    deep_pos = next(i for i, l in enumerate(lines) if "Deep1" in l)
+    assert acq_pos < net_pos < cas_pos < deep_pos
 
 
 def test_given_removed_contact_without_all_when_run_list_then_prints_no_contacts_yet(capsys: Any, tmp_path: Path) -> None:

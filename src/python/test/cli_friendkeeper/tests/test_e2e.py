@@ -211,8 +211,8 @@ class TestE2E:
         assert r.returncode == 0, r.stderr
         assert "Nothing due." in r.stdout or "Ivan" not in r.stdout
 
-        # Should still appear in list
-        r = _cli("list", env=env)
+        # Should still appear in list with --acquaintances flag
+        r = _cli("list", "--acquaintances", env=env)
         assert r.returncode == 0, r.stderr
         assert "Ivan" in r.stdout
 
