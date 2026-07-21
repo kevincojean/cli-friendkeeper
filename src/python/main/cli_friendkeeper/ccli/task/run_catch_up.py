@@ -78,12 +78,11 @@ def run(args: list[str], ctx: Context) -> int:
         state = states.get(c.id, ContactState(id=c.id, name=c.name))
         ds = days_since_touched(state, today)
         days_str = f"{ds}d" if ds is not None else "never"
-        notes = c.notes or ""
+        note_text = c.notes if c.notes else "—"
 
         typer.echo("")
-        typer.echo(f"[{i}/{len(due)}] {c.name:<20} {c.priority:<10} {days_str}")
-        if notes:
-            typer.echo(f"       Notes: {notes}")
+        typer.echo(f"[{i}/{len(due)}] {c.name:<20} {c.priority:<10} {days_str}  id={c.id[:8]}")
+        typer.echo(f"       Notes: {note_text}")
 
         snooze_default = effective_snooze(ctx.config, c.priority)
         typer.echo("")
