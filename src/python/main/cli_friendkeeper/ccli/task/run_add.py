@@ -13,9 +13,10 @@ from uuid import uuid4
 
 import typer
 
-from cli_friendkeeper.config import DEFAULT_PRIORITY
+from cli_friendkeeper.ccli.task.run_list import _COLUMNS, _render_cell
+from cli_friendkeeper.config import DEFAULT_PRIORITY, effective_cadence
 from cli_friendkeeper.errors import ContactAlreadyExistsError, InvalidEmailError
-from cli_friendkeeper.models import Contact, LogEntry
+from cli_friendkeeper.models import Contact, ContactState, LogEntry
 
 
 def _print_usage() -> None:
@@ -117,5 +118,32 @@ def run(args: list[str], ctx: Any) -> int:
     )
     ctx.log.append(entry)
 
-    typer.echo(f"Added: {contact.name} (id: {contact.id})")
+    all_columns = [
+        "id", "name", "priority", "last_touched", "due_date",
+        "days_since", "cadence", "notes", "email", "phone",
+    ]
+    today = ctx.clock.today()
+    cadence = effective_cadence(ctx.config, contact.priority, contact.cadence_days)
+    state = ContactState(id=contact.id, name=contact.name)
+
+    headers: list[str] = []
+    widths: list[int] = []
+    for col in all_columns:
+        if col in _COLUMNS:
+            hdr, w = _COLUMNS[col]
+            headers.append(hdr)
+            widths.append(w)
+
+    header_line = " ".join(f"{h:<{w}}" for h, w in zip(headers, widths))
+    typer.echo(header_line)
+    typer.echo("-" * len(header_line))
+
+    cells = [
+        _render_cell(col, contact, state, today, cadence)
+        for col in all_columns
+        if col in _COLUMNS
+    ]
+    typer.echo(" ".join(f"{cell:<{w}}" for cell, w in zip(cells, widths)))
+    typer.echo(f"(id: {contact.id})")
+
     return 0
