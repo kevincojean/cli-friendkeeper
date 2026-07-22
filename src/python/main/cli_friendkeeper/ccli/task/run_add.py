@@ -1,7 +1,7 @@
 """Add a new contact.
 
 Usage:
-    friend add --name <name> [--email <email>] [--phone <number>]
+    friend add --name <name> [--email <email>] [--phone <number>] [--priority <deep|casual|network|acquaintance>]
                [--priority <deep|casual|network|acquaintance>] [--cadence-days <n>]
                [--notes <text>]
 """
@@ -72,10 +72,6 @@ def run(args: list[str], ctx: Any) -> int:
 
     if not name_val:
         typer.echo("Error: --name is required", err=True)
-        return 1
-
-    if not email_val and not phone_val:
-        typer.echo("Error: at least one of --email or --phone is required", err=True)
         return 1
 
     contact_id = str(uuid4())

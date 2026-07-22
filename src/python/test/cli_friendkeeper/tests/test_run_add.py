@@ -67,10 +67,10 @@ def test_given_no_name_when_adding_then_returns_one(tmp_path: Path) -> None:
     assert contacts.all() == []
 
 
-def test_given_no_email_and_no_phone_when_adding_then_returns_one(
+def test_given_no_email_and_no_phone_when_adding_then_returns_zero(
     tmp_path: Path,
 ) -> None:
-    """given no email and no phone when adding then returns 1."""
+    """given no email and no phone when adding then returns 0 and stores contact."""
     store = FakeStore()
     data_dir = tmp_path
     contacts = ContactRepo(store, data_dir)
@@ -82,8 +82,12 @@ def test_given_no_email_and_no_phone_when_adding_then_returns_one(
 
     rc = run(["--name", "Alice Smith"], ctx)
 
-    assert rc == 1
-    assert contacts.all() == []
+    assert rc == 0
+    result = contacts.all()
+    assert len(result) == 1
+    assert result[0].name == "Alice Smith"
+    assert result[0].email is None
+    assert result[0].phone is None
 
 
 def test_given_same_name_when_adding_twice_then_both_succeed(
