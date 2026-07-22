@@ -128,6 +128,66 @@ class TestContactState:
         assert d["touch_count"] == 0
         assert d["removed"] is False
 
+    def test_given_contact_state_default_when_created_then_snooze_count_is_zero(self) -> None:
+        """given ContactState() when created then snooze_count defaults to 0"""
+        state = ContactState(id="test-uuid-u1", name="user1")
+        assert state.snooze_count == 0
+
+    def test_given_contact_state_with_snooze_count_when_to_dict_then_included(self) -> None:
+        """given ContactState(snooze_count=3) when to_dict then dict contains snooze_count=3"""
+        state = ContactState(id="test-uuid-u1", name="user1", snooze_count=3)
+        d = state.to_dict()
+        assert d["snooze_count"] == 3
+
+    def test_given_contact_state_dict_with_snooze_count_when_from_dict_then_parsed(self) -> None:
+        """given {"snooze_count": 2} when from_dict then ContactState.snooze_count=2"""
+        d = {"id": "test-uuid-u1", "name": "user1", "snooze_count": 2}
+        state = ContactState.from_dict(d)
+        assert state.snooze_count == 2
+
+    def test_given_contact_state_dict_without_snooze_count_when_from_dict_then_defaults_zero(self) -> None:
+        """given {} without snooze_count when from_dict then ContactState.snooze_count=0 (backward compat)"""
+        d = {"id": "test-uuid-u1", "name": "user1"}
+        state = ContactState.from_dict(d)
+        assert state.snooze_count == 0
+
+    def test_given_contact_state_default_when_created_then_warm_up_consumed_is_false(self) -> None:
+        """given ContactState() when created then warm_up_consumed defaults to False"""
+        state = ContactState(id="test-uuid-u1", name="user1")
+        assert state.warm_up_consumed is False
+
+    def test_given_contact_state_with_warm_up_consumed_when_to_dict_then_included(self) -> None:
+        """given ContactState(warm_up_consumed=True) when to_dict then dict contains warm_up_consumed=True"""
+        state = ContactState(id="test-uuid-u1", name="user1", warm_up_consumed=True)
+        d = state.to_dict()
+        assert d["warm_up_consumed"] is True
+
+    def test_given_contact_state_dict_with_warm_up_consumed_when_from_dict_then_parsed(self) -> None:
+        """given {"warm_up_consumed": true} when from_dict then ContactState.warm_up_consumed=True"""
+        d = {"id": "test-uuid-u1", "name": "user1", "warm_up_consumed": True}
+        state = ContactState.from_dict(d)
+        assert state.warm_up_consumed is True
+
+    def test_given_contact_state_dict_without_warm_up_consumed_when_from_dict_then_defaults_false(self) -> None:
+        """given {} without warm_up_consumed when from_dict then ContactState.warm_up_consumed=False (backward compat)"""
+        d = {"id": "test-uuid-u1", "name": "user1"}
+        state = ContactState.from_dict(d)
+        assert state.warm_up_consumed is False
+
+    def test_given_contact_state_with_new_fields_when_round_trip_then_preserved(self) -> None:
+        """given ContactState(snooze_count=2, warm_up_consumed=True) when to_dict→from_dict then fields preserved"""
+        state = ContactState(
+            id="test-uuid-u1",
+            name="user1",
+            snooze_count=2,
+            warm_up_consumed=True,
+        )
+        d = state.to_dict()
+        restored = ContactState.from_dict(d)
+        assert restored.snooze_count == 2
+        assert restored.warm_up_consumed is True
+        assert restored == state
+
 
 class TestLogEntry:
     def test_given_log_entry_when_to_dict_and_from_dict_then_round_trips(self) -> None:

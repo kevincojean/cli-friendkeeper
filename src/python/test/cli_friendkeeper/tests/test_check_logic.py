@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from cli_friendkeeper.check_logic import days_since_touched, due_date, is_due, select_due
-from cli_friendkeeper.config import Config
+from cli_friendkeeper.config import Config, DEFAULT_CADENCE
 from cli_friendkeeper.models import Contact, ContactState
 
 
@@ -139,3 +139,221 @@ class TestSelectDue:
 
         result = select_due([bob, alice], states, today, config)
         assert [c.name for c in result] == ["Bob", "Alice"]
+
+
+class TestIsDueWarmUp:
+    def test_given_acquaintance_in_warm_up_never_touched_when_is_due_then_true(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-a", name="A", warm_up_consumed=False, snooze_count=0)
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is True
+
+    def test_given_acquaintance_in_warm_up_within_warm_up_cadence_when_is_due_then_false(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-a", name="A", last_touched=date(2026, 7, 10), warm_up_consumed=False, snooze_count=0)
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is False
+
+    def test_given_acquaintance_in_warm_up_beyond_warm_up_cadence_when_is_due_then_true(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-a", name="A", last_touched=date(2026, 5, 1), warm_up_consumed=False, snooze_count=0)
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is True
+
+    def test_given_acquaintance_warm_up_consumed_when_is_due_then_false(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-a", name="A", warm_up_consumed=True, snooze_count=2)
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is False
+
+    def test_given_casual_in_warm_up_never_touched_when_is_due_then_true(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-b", name="B", warm_up_consumed=False, snooze_count=0)
+        contact = Contact(id="uuid-b", name="B", priority="casual")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is True
+
+    def test_given_casual_in_warm_up_within_warm_up_cadence_when_is_due_then_false(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-b", name="B", last_touched=date(2026, 7, 15), warm_up_consumed=False, snooze_count=0)
+        contact = Contact(id="uuid-b", name="B", priority="casual")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is False
+
+    def test_given_casual_in_warm_up_beyond_warm_up_cadence_when_is_due_then_true(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-b", name="B", last_touched=date(2026, 6, 1), warm_up_consumed=False, snooze_count=0)
+        contact = Contact(id="uuid-b", name="B", priority="casual")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is True
+
+    def test_given_casual_warm_up_consumed_when_is_due_then_uses_regular_cadence(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-b", name="B", last_touched=date(2026, 5, 1), warm_up_consumed=True, snooze_count=3)
+        contact = Contact(id="uuid-b", name="B", priority="casual")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is True
+
+    def test_given_casual_warm_up_consumed_within_regular_cadence_when_is_due_then_false(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-b", name="B", last_touched=date(2026, 7, 10), warm_up_consumed=True, snooze_count=3)
+        contact = Contact(id="uuid-b", name="B", priority="casual")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is False
+
+    def test_given_acquaintance_snooze_count_below_max_when_is_due_then_still_in_warm_up(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-a", name="A", warm_up_consumed=False, snooze_count=1)
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is True
+    def test_given_acquaintance_snooze_count_exceeds_max_when_is_due_then_relegated(self) -> None:
+        from cli_friendkeeper.check_logic import check_is_due
+        state = ContactState(id="uuid-a", name="A", warm_up_consumed=True, snooze_count=3)
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_is_due(cfg, state, contact, today)
+        assert result is False
+
+
+class TestDueDateWarmUp:
+    def test_given_acquaintance_in_warm_up_never_touched_when_due_date_then_returns_added_at(self) -> None:
+        from cli_friendkeeper.check_logic import check_due_date
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance", added_at=date(2026, 1, 1))
+        state = ContactState(id="uuid-a", name="A", warm_up_consumed=False, snooze_count=0)
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_due_date(cfg, state, contact, today)
+        assert result == date(2026, 1, 1)
+
+    def test_given_acquaintance_in_warm_up_touched_when_due_date_then_returns_last_touched_plus_warm_up_cadence(self) -> None:
+        from cli_friendkeeper.check_logic import check_due_date
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        state = ContactState(id="uuid-a", name="A", last_touched=date(2026, 7, 10), warm_up_consumed=False, snooze_count=0)
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_due_date(cfg, state, contact, today)
+        assert result == date(2026, 8, 24)
+
+    def test_given_acquaintance_warm_up_consumed_when_due_date_then_returns_none(self) -> None:
+        from cli_friendkeeper.check_logic import check_due_date
+        contact = Contact(id="uuid-a", name="A", priority="acquaintance")
+        state = ContactState(id="uuid-a", name="A", last_touched=date(2026, 6, 1), warm_up_consumed=True, snooze_count=2)
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_due_date(cfg, state, contact, today)
+        assert result is None
+
+    def test_given_casual_in_warm_up_touched_when_due_date_then_returns_last_touched_plus_warm_up_cadence(self) -> None:
+        from cli_friendkeeper.check_logic import check_due_date
+        contact = Contact(id="uuid-b", name="B", priority="casual")
+        state = ContactState(id="uuid-b", name="B", last_touched=date(2026, 7, 15), warm_up_consumed=False, snooze_count=0)
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_due_date(cfg, state, contact, today)
+        assert result == date(2026, 7, 30)
+
+    def test_given_casual_warm_up_consumed_when_due_date_then_returns_last_touched_plus_regular_cadence(self) -> None:
+        from cli_friendkeeper.check_logic import check_due_date
+        contact = Contact(id="uuid-b", name="B", priority="casual")
+        state = ContactState(id="uuid-b", name="B", last_touched=date(2026, 5, 1), warm_up_consumed=True, snooze_count=3)
+        today = date(2026, 7, 20)
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        result = check_due_date(cfg, state, contact, today)
+        assert result == date(2026, 6, 15)
+
+
+class TestSelectDueWarmUp:
+    def test_given_acquaintance_in_warm_up_when_select_due_then_included(self) -> None:
+        from cli_friendkeeper.check_logic import select_due_warm_up_aware
+        config = Config(cadence=DEFAULT_CADENCE)
+        today = date(2026, 7, 20)
+
+        alice = Contact(id="uuid-alice", name="Alice", priority="acquaintance")
+
+        states = {
+            "uuid-alice": ContactState(id="uuid-alice", name="Alice", warm_up_consumed=False, snooze_count=0),
+        }
+
+        result = select_due_warm_up_aware([alice], states, today, config)
+        assert len(result) == 1
+        assert result[0].name == "Alice"
+
+    def test_given_acquaintance_warm_up_consumed_when_select_due_then_excluded(self) -> None:
+        from cli_friendkeeper.check_logic import select_due_warm_up_aware
+        config = Config(cadence=DEFAULT_CADENCE)
+        today = date(2026, 7, 20)
+
+        alice = Contact(id="uuid-alice", name="Alice", priority="acquaintance")
+
+        states = {
+            "uuid-alice": ContactState(id="uuid-alice", name="Alice", warm_up_consumed=True, snooze_count=2),
+        }
+
+        result = select_due_warm_up_aware([alice], states, today, config)
+        assert result == []
+
+    def test_given_mixed_priorities_in_warm_up_when_select_due_then_all_included(self) -> None:
+        from cli_friendkeeper.check_logic import select_due_warm_up_aware
+        config = Config(cadence=DEFAULT_CADENCE)
+        today = date(2026, 7, 20)
+
+        alice = Contact(id="uuid-alice", name="Alice", priority="acquaintance")
+        bob = Contact(id="uuid-bob", name="Bob", priority="casual")
+
+        states = {
+            "uuid-alice": ContactState(id="uuid-alice", name="Alice", warm_up_consumed=False, snooze_count=0),
+            "uuid-bob": ContactState(id="uuid-bob", name="Bob", warm_up_consumed=False, snooze_count=0),
+        }
+
+        result = select_due_warm_up_aware([alice, bob], states, today, config)
+        assert len(result) == 2
+
+    def test_given_acquaintance_in_warm_up_and_casual_regular_when_select_due_then_sorted_by_overdue(self) -> None:
+        from cli_friendkeeper.check_logic import select_due_warm_up_aware
+        config = Config(cadence=DEFAULT_CADENCE)
+        today = date(2026, 7, 20)
+
+        alice = Contact(id="uuid-alice", name="Alice", priority="acquaintance")
+        bob = Contact(id="uuid-bob", name="Bob", priority="casual")
+
+        states = {
+            "uuid-alice": ContactState(
+                id="uuid-alice", name="Alice",
+                last_touched=today - timedelta(days=60),
+                warm_up_consumed=False, snooze_count=0,
+            ),
+            "uuid-bob": ContactState(
+                id="uuid-bob", name="Bob",
+                last_touched=today - timedelta(days=50),
+                warm_up_consumed=True, snooze_count=3,
+            ),
+        }
+
+        result = select_due_warm_up_aware([bob, alice], states, today, config)
+        assert [c.name for c in result] == ["Alice", "Bob"]

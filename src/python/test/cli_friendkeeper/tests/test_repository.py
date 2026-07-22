@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from pymonad.either import Right
 
@@ -162,3 +163,58 @@ class TestLogRepo:
         repo = LogRepo(store, Path("/tmp"))
 
         assert repo.all() == []
+
+
+class TestStateRepoWarmUp:
+    def test_given_state_with_snooze_count_when_upsert_then_persisted(
+        self, fake_store: Any, tmp_data_dir: Path
+    ) -> None:
+        """given ContactState(snooze_count=2) when upsert then get returns snooze_count=2"""
+        repo = StateRepo(fake_store, tmp_data_dir)
+
+        state = ContactState(id="uuid-snooze", name="Snoozy", snooze_count=2)
+        result = repo.upsert(state)
+
+        assert result == Right(None)
+        got = repo.get("uuid-snooze")
+        assert got == Right(state)
+
+    def test_given_state_with_warm_up_consumed_when_upsert_then_persisted(
+        self, fake_store: Any, tmp_data_dir: Path
+    ) -> None:
+        """given ContactState(warm_up_consumed=True) when upsert then get returns warm_up_consumed=True"""
+        repo = StateRepo(fake_store, tmp_data_dir)
+
+        state = ContactState(id="uuid-warm", name="Warmy", warm_up_consumed=True)
+        result = repo.upsert(state)
+
+        assert result == Right(None)
+        got = repo.get("uuid-warm")
+        assert got == Right(state)
+
+    def test_given_old_state_without_new_fields_when_read_then_defaults_applied(
+        self, fake_store: Any, tmp_data_dir: Path
+    ) -> None:
+        """given state.jsonl without snooze_count/warm_up_consumed when read then defaults (0, False) applied"""
+        from datetime import date
+
+        repo = StateRepo(fake_store, tmp_data_dir)
+
+        fake_store.write_jsonl_atomic(
+            tmp_data_dir / "state.jsonl",
+            [
+                {
+                    "id": "uuid-old",
+                    "name": "Oldie",
+                    "last_touched": "2026-01-01",
+                    "touch_count": 1,
+                    "removed": False,
+                }
+            ],
+        )
+
+        got = repo.get("uuid-old")
+        assert not got.is_left()
+        state = got.value
+        assert state.snooze_count == 0
+        assert state.warm_up_consumed is False

@@ -12,10 +12,12 @@ from cli_friendkeeper.config import (
     DEFAULT_SUBCOMMAND,
     Config,
     effective_cadence,
+    effective_snooze,
     load_config,
     save_config,
 )
 from cli_friendkeeper.errors import ConfigError, InvalidPriorityError, StorageError
+from cli_friendkeeper.models import ContactState
 
 
 # ---------------------------------------------------------------------------
@@ -242,3 +244,150 @@ class TestEffectiveCadence:
         """Override short-circuits, so an unknown priority is fine."""
         cfg = Config(cadence={"deep": 5})
         assert effective_cadence(cfg, "unknown", 42) == 42
+
+
+# ---------------------------------------------------------------------------
+# Warm-Up Config
+# ---------------------------------------------------------------------------
+
+class TestWarmUpConfigDefaults:
+    def test_given_no_config_file_when_loading_then_warm_up_defaults_match_spec(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        assert cfg.warm_up == {"acquaintance": 45, "casual": 15}
+
+    def test_given_no_config_file_when_loading_then_warm_up_max_snoozes_defaults(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        assert cfg.warm_up_max_snoozes == {"acquaintance": 2, "casual": 3}
+
+    def test_given_no_config_file_when_loading_then_acquaintance_auto_upgrade_defaults_true(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        assert cfg.acquaintance_auto_upgrade is True
+
+
+class TestWarmUpLoading:
+    def test_given_warm_up_flat_keys_in_config_when_loading_then_parsed_correctly(self) -> None:
+        data = {"cadence": {"deep": 15}, "warm_up.acquaintance": 30, "warm_up.casual": 10}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            cfg = load_config(p)
+            assert cfg.warm_up["acquaintance"] == 30
+            assert cfg.warm_up["casual"] == 10
+
+    def test_given_warm_up_max_snoozes_flat_keys_in_config_when_loading_then_parsed_correctly(self) -> None:
+        data = {"cadence": {"deep": 15}, "warm_up.max_snoozes.acquaintance": 5}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            cfg = load_config(p)
+            assert cfg.warm_up_max_snoozes["acquaintance"] == 5
+
+    def test_given_acquaintance_auto_upgrade_false_in_config_when_loading_then_false(self) -> None:
+        data = {"cadence": {"deep": 15}, "acquaintance.auto_upgrade": False}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            cfg = load_config(p)
+            assert cfg.acquaintance_auto_upgrade is False
+
+
+class TestWarmUpValidation:
+    def test_given_warm_up_non_integer_when_loading_then_raises_config_error(self) -> None:
+        data = {"cadence": {"deep": 15}, "warm_up.acquaintance": "ten"}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            with pytest.raises(ConfigError, match="warm_up"):
+                load_config(p)
+
+    def test_given_warm_up_max_snoozes_negative_when_loading_then_raises_config_error(self) -> None:
+        data = {"cadence": {"deep": 15}, "warm_up.max_snoozes.casual": -1}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            with pytest.raises(ConfigError, match="warm_up"):
+                load_config(p)
+
+    def test_given_acquaintance_auto_upgrade_non_bool_when_loading_then_raises_config_error(self) -> None:
+        data = {"cadence": {"deep": 15}, "acquaintance.auto_upgrade": "yes"}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            with pytest.raises(ConfigError, match="auto_upgrade"):
+                load_config(p)
+
+    def test_given_warm_up_unknown_priority_when_loading_then_raises_config_error(self) -> None:
+        data = {"cadence": {"deep": 15}, "warm_up.bestie": 10}
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            _write_json(p, data)
+            with pytest.raises(ConfigError, match="warm_up"):
+                load_config(p)
+
+
+class TestWarmUpSave:
+    def test_given_custom_warm_up_when_saving_then_flat_keys_written(self) -> None:
+        cfg = Config(
+            cadence={"deep": 15},
+            warm_up={"acquaintance": 30},
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            save_config(cfg, p)
+            raw = json.loads(p.read_text())
+            assert raw["warm_up.acquaintance"] == 30
+
+    def test_given_default_warm_up_when_saving_then_not_written(self) -> None:
+        cfg = Config(cadence={"deep": 15})
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            save_config(cfg, p)
+            raw = json.loads(p.read_text())
+            for key in raw:
+                assert not key.startswith("warm_up")
+
+    def test_given_auto_upgrade_false_when_saving_then_written(self) -> None:
+        cfg = Config(cadence={"deep": 15}, acquaintance_auto_upgrade=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "config.json"
+            save_config(cfg, p)
+            raw = json.loads(p.read_text())
+            assert raw["acquaintance.auto_upgrade"] is False
+
+
+class TestEffectiveWarmUpCadence:
+    def test_given_acquaintance_state_when_effective_warm_up_cadence_then_returns_warm_up_value(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        state = ContactState(id="uuid-a", name="A", warm_up_consumed=False, snooze_count=0)
+        result = effective_cadence_with_warm_up(cfg, "acquaintance", state)
+        assert result == 45
+
+    def test_given_acquaintance_warm_up_consumed_when_effective_warm_up_cadence_then_returns_regular_cadence_zero(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        state = ContactState(id="uuid-a", name="A", warm_up_consumed=True, snooze_count=2)
+        result = effective_cadence_with_warm_up(cfg, "acquaintance", state)
+        assert result == 0
+
+    def test_given_casual_state_when_effective_warm_up_cadence_then_returns_warm_up_value(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        state = ContactState(id="uuid-b", name="B", warm_up_consumed=False, snooze_count=0)
+        result = effective_cadence_with_warm_up(cfg, "casual", state)
+        assert result == 15
+
+    def test_given_casual_warm_up_consumed_when_effective_warm_up_cadence_then_returns_regular_cadence(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        state = ContactState(id="uuid-b", name="B", warm_up_consumed=True, snooze_count=3)
+        result = effective_cadence_with_warm_up(cfg, "casual", state)
+        assert result == 45
+
+    def test_given_deep_contact_when_effective_warm_up_cadence_then_returns_regular_cadence(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        state = ContactState(id="uuid-d", name="D", warm_up_consumed=True, snooze_count=0)
+        result = effective_cadence_with_warm_up(cfg, "deep", state)
+        assert result == 15
+
+    def test_given_network_contact_when_effective_warm_up_cadence_then_returns_regular_cadence(self) -> None:
+        cfg = Config(cadence=DEFAULT_CADENCE)
+        state = ContactState(id="uuid-n", name="N", warm_up_consumed=True, snooze_count=0)
+        result = effective_cadence_with_warm_up(cfg, "network", state)
+        assert result == 180

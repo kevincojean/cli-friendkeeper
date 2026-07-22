@@ -168,6 +168,150 @@ def test_given_json_flag_when_run_due_then_valid_json_printed(capsys: Any, tmp_p
     assert data[0]["due_date"] == "2026-06-16"
 
 
+class TestDueWarmUp:
+    def test_given_acquaintance_in_warm_up_never_touched_when_due_then_shown(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given acquaintance in warm-up (never touched) when `friend due` then shown in due list"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        clock = _clock(date(2026, 7, 20))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, clock, config)
+
+        contacts._write_contacts([
+            Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-alice", name="Alice",
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict()
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_due import run
+
+        rc = run([], ctx)
+        captured = capsys.readouterr()
+
+        assert rc == 0
+        assert "Alice" in captured.out
+
+    def test_given_acquaintance_warm_up_consumed_when_due_then_not_shown(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given acquaintance warm_up_consumed=True when `friend due` then not shown (cadence=0)"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        clock = _clock(date(2026, 7, 20))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, clock, config)
+
+        contacts._write_contacts([
+            Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-alice", name="Alice",
+                    warm_up_consumed=True, snooze_count=0,
+                ).to_dict()
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_due import run
+
+        rc = run([], ctx)
+        captured = capsys.readouterr()
+
+        assert rc == 0
+        assert "Alice" not in captured.out
+
+    def test_given_casual_in_warm_up_when_due_then_shown_with_warm_up_cadence(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given casual in warm-up touched 20d ago when `friend due` then shown (warm-up cadence=15)"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        clock = _clock(date(2026, 7, 20))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, clock, config)
+
+        contacts._write_contacts([
+            Contact(id="uuid-bob", name="Bob", priority="casual"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-bob", name="Bob",
+                    last_touched=date(2026, 6, 30),
+                    touch_count=1,
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict()
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_due import run
+
+        rc = run([], ctx)
+        captured = capsys.readouterr()
+
+        assert rc == 0
+        assert "Bob" in captured.out
+
+    def test_given_acquaintance_in_warm_up_and_casual_regular_when_due_then_both_shown(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given acquaintance in warm-up + casual regular both due when `friend due` then both in output"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        clock = _clock(date(2026, 7, 20))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, clock, config)
+
+        contacts._write_contacts([
+            Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+            Contact(id="uuid-bob", name="Bob", priority="casual"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-alice", name="Alice",
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict(),
+                ContactState(
+                    id="uuid-bob", name="Bob",
+                    last_touched=date(2026, 5, 1),
+                    touch_count=1,
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict(),
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_due import run
+
+        rc = run([], ctx)
+        captured = capsys.readouterr()
+
+        assert rc == 0
+        assert "Alice" in captured.out
+        assert "Bob" in captured.out
+
+
 def _clock(fixed_date: date) -> Any:
     from cli_friendkeeper.clock import FixedClock
 

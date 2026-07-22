@@ -177,6 +177,152 @@ def test_given_note_flag_when_touched_then_log_payload_contains_note(capsys: Any
     assert entries[0].payload == {"note": "Sent birthday wishes"}
 
 
+class TestTouchWarmUp:
+    def test_given_acquaintance_in_warm_up_when_touch_then_warm_up_consumed(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given acquaintance warm_up_consumed=False when `friend touch` then warm_up_consumed=True"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        log = LogRepo(store, data_dir)
+        clock = _clock(date(2026, 1, 1))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, log, clock, config, data_dir)
+
+        contacts._write_contacts([
+            Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-alice", name="Alice",
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict()
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_touch import run
+
+        rc = run(["uuid-alice"], ctx)
+        capsys.readouterr()
+
+        assert rc == 0
+        state_result = states.get("uuid-alice")
+        assert not state_result.is_left()
+        state = state_result.value
+        assert state.warm_up_consumed is True
+
+    def test_given_casual_in_warm_up_when_touch_then_warm_up_consumed(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given casual warm_up_consumed=False when `friend touch` then warm_up_consumed=True"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        log = LogRepo(store, data_dir)
+        clock = _clock(date(2026, 1, 1))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, log, clock, config, data_dir)
+
+        contacts._write_contacts([
+            Contact(id="uuid-bob", name="Bob", priority="casual"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-bob", name="Bob",
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict()
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_touch import run
+
+        rc = run(["uuid-bob"], ctx)
+        capsys.readouterr()
+
+        assert rc == 0
+        state_result = states.get("uuid-bob")
+        assert not state_result.is_left()
+        state = state_result.value
+        assert state.warm_up_consumed is True
+
+    def test_given_acquaintance_in_warm_up_when_touch_then_no_auto_upgrade(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given acquaintance when `friend touch` (non-interactive) then no auto-upgrade (only catch-up does that)"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        log = LogRepo(store, data_dir)
+        clock = _clock(date(2026, 1, 1))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, log, clock, config, data_dir)
+
+        contacts._write_contacts([
+            Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-alice", name="Alice",
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict()
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_touch import run
+
+        rc = run(["uuid-alice"], ctx)
+        capsys.readouterr()
+
+        assert rc == 0
+        contact_result = contacts.get("uuid-alice")
+        assert not contact_result.is_left()
+        assert contact_result.value.priority == "acquaintance"
+
+    def test_given_acquaintance_in_warm_up_when_touch_then_stdout_logs_warm_up_consumed(
+        self, capsys: Any, tmp_path: Path
+    ) -> None:
+        """given acquaintance when `friend touch` then stdout mentions warm-up consumed"""
+        store = FakeStore()
+        data_dir = tmp_path
+        contacts = ContactRepo(store, data_dir)
+        states = StateRepo(store, data_dir)
+        log = LogRepo(store, data_dir)
+        clock = _clock(date(2026, 1, 1))
+        config = Config(cadence=DEFAULT_CADENCE)
+        ctx = FakeContext(contacts, states, log, clock, config, data_dir)
+
+        contacts._write_contacts([
+            Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        ])
+        store.write_jsonl_atomic(
+            data_dir / "state.jsonl",
+            [
+                ContactState(
+                    id="uuid-alice", name="Alice",
+                    warm_up_consumed=False, snooze_count=0,
+                ).to_dict()
+            ],
+        )
+
+        from cli_friendkeeper.ccli.task.run_touch import run
+
+        rc = run(["uuid-alice"], ctx)
+        captured = capsys.readouterr()
+
+        assert rc == 0
+        assert "warm" in captured.out.lower() or "Warm" in captured.out
+
+
 def _clock(fixed_date: date) -> Any:
     from cli_friendkeeper.clock import FixedClock
 
