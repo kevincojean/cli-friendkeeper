@@ -40,7 +40,7 @@ def test_given_valid_contact_when_adding_then_returns_zero(tmp_path: Path) -> No
 
     from cli_friendkeeper.ccli.task.run_add import run
 
-    rc = run(["--name", "Alice Smith", "--email", "alice@example.com"], ctx)
+    rc = run(["Alice Smith", "--email", "alice@example.com"], ctx)
 
     assert rc == 0
     result = contacts.all()
@@ -80,7 +80,7 @@ def test_given_no_email_and_no_phone_when_adding_then_returns_zero(
 
     from cli_friendkeeper.ccli.task.run_add import run
 
-    rc = run(["--name", "Alice Smith"], ctx)
+    rc = run(["Alice Smith"], ctx)
 
     assert rc == 0
     result = contacts.all()
@@ -88,6 +88,29 @@ def test_given_no_email_and_no_phone_when_adding_then_returns_zero(
     assert result[0].name == "Alice Smith"
     assert result[0].email is None
     assert result[0].phone is None
+
+
+def test_given_positional_name_when_adding_then_returns_zero(
+    tmp_path: Path,
+) -> None:
+    """given positional name when adding then returns 0 and stores contact."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    log = LogRepo(store, data_dir)
+    clock = FixedClock(date(2026, 1, 1))
+    ctx = FakeContext(contacts, log, clock)
+
+    from cli_friendkeeper.ccli.task.run_add import run
+
+    rc = run(["Alice Smith", "--email", "alice@example.com", "--note", "some note"], ctx)
+
+    assert rc == 0
+    result = contacts.all()
+    assert len(result) == 1
+    assert result[0].name == "Alice Smith"
+    assert result[0].email == "alice@example.com"
+    assert result[0].notes == "some note"
 
 
 def test_given_same_name_when_adding_twice_then_both_succeed(
@@ -151,7 +174,7 @@ def test_given_all_fields_when_adding_then_returns_zero(tmp_path: Path) -> None:
             "deep",
             "--cadence-days",
             "14",
-            "--notes",
+            "--note",
             "Met at conference",
         ],
         ctx,

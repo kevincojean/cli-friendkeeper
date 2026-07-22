@@ -1,9 +1,9 @@
 """Add a new contact.
 
 Usage:
-    friend add --name <name> [--email <email>] [--phone <number>] [--priority <deep|casual|network|acquaintance>]
+    friend add <name> [--email <email>] [--phone <number>]
                [--priority <deep|casual|network|acquaintance>] [--cadence-days <n>]
-               [--notes <text>]
+               [--note <text>]
 """
 
 from __future__ import annotations
@@ -21,8 +21,8 @@ from cli_friendkeeper.models import Contact, LogEntry
 def _print_usage() -> None:
     """Print usage help to stderr."""
     typer.echo(
-        "Usage: friend add --name <name> [--email <email>] [--phone <number>]"
-        " [--priority <deep|casual|network|acquaintance>] [--cadence-days <n>] [--notes <text>]",
+        "Usage: friend add <name> [--email <email>] [--phone <number>]"
+        " [--priority <deep|casual|network|acquaintance>] [--cadence-days <n>] [--note <text>]",
         err=True,
     )
 
@@ -61,17 +61,20 @@ def run(args: list[str], ctx: Any) -> int:
         elif args[i] == "--cadence-days" and i + 1 < len(args):
             cadence_days_val = int(args[i + 1])
             i += 2
-        elif args[i] == "--notes" and i + 1 < len(args):
+        elif args[i] == "--note" and i + 1 < len(args):
             notes_val = args[i + 1]
             i += 2
         elif args[i].startswith("--"):
             typer.echo(f"Unknown flag: {args[i]}", err=True)
             return 1
+        elif name_val is None:
+            name_val = args[i]
+            i += 1
         else:
             i += 1
 
     if not name_val:
-        typer.echo("Error: --name is required", err=True)
+        typer.echo("Error: name is required", err=True)
         return 1
 
     contact_id = str(uuid4())

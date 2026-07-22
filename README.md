@@ -20,8 +20,8 @@ Optional: `BIN_NAME=my-friend ./install.sh` or `PREFIX=/usr/local ./install.sh`
 ## Quick Start
 
 ```bash
-friend add --name "Alice Smith" --email alice@example.com --priority deep
-friend add --name "Bob Jones" --email bob@example.com --priority casual
+friend add "Alice Smith" --email alice@example.com --priority deep
+friend add "Bob Jones" --email bob@example.com --priority casual
 friend catch-up
 ```
 
