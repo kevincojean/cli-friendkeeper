@@ -508,10 +508,10 @@ class TestCatchUpAcquaintanceAutoUpgrade:
         assert state_result.is_right()
         assert state_result.value.warm_up_consumed is True
 
-    def test_given_acquaintance_upgraded_when_touch_then_enters_casual_warm_up(
+    def test_given_acquaintance_upgraded_when_touch_then_warm_up_consumed(
         self, monkeypatch: Any, capsys: Any, tmp_path: Path
     ) -> None:
-        """given acquaintance upgraded to casual when touch then new state has warm_up_consumed=False (enters casual warm-up 15d)"""
+        """given acquaintance upgraded when touch then warm_up_consumed=True (warm-up consumed by the touch)"""
         store = FakeStore()
         data_dir = tmp_path
         contacts = ContactRepo(store, data_dir)
@@ -545,7 +545,7 @@ class TestCatchUpAcquaintanceAutoUpgrade:
         assert rc == 0
         state_result = states.get("uuid-alice")
         assert state_result.is_right()
-        assert state_result.value.warm_up_consumed is False
+        assert state_result.value.warm_up_consumed is True
 
     def test_given_acquaintance_upgraded_when_touch_then_log_entry_records_upgrade(
         self, monkeypatch: Any, capsys: Any, tmp_path: Path

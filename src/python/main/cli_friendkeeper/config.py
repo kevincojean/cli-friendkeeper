@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from cli_friendkeeper.errors import ConfigError, InvalidPriorityError, StorageError
 from cli_friendkeeper.paths import config_file
+
+if TYPE_CHECKING:
+    from cli_friendkeeper.models import ContactState
 
 DEFAULT_CADENCE: dict[str, int] = {
     "deep": 15,
@@ -61,6 +64,9 @@ class Config:
     list_sort_priority: str | None = None
     list_sort_due_date: str | None = None
     list_columns: list[str] | None = None
+    warm_up: dict[str, int] | None = None
+    warm_up_max_snoozes: dict[str, int] | None = None
+    acquaintance_auto_upgrade: bool = True
 
     def __post_init__(self) -> None:
         if self.snooze is None:
@@ -75,6 +81,10 @@ class Config:
             self.list_sort_due_date = "desc"
         if self.list_columns is None:
             self.list_columns = list(DEFAULT_LIST_COLUMNS)
+        if self.warm_up is None:
+            self.warm_up = {"acquaintance": 45, "casual": 15}
+        if self.warm_up_max_snoozes is None:
+            self.warm_up_max_snoozes = {"acquaintance": 2, "casual": 3}
 
 
 def _flat_or_raw(raw: dict[str, Any], flat_key: str, legacy_key: str) -> Any:
@@ -125,7 +135,30 @@ def load_config(path: Path | None = None) -> Config:
             if prio in VALID_PRIORITIES:
                 snooze[prio] = val
 
-    # Extract flat list.* keys (new) alongside legacy nested keys
+    warm_up = {}
+    if isinstance(raw.get("warm_up"), dict):
+        warm_up = dict(raw["warm_up"])
+    for key, val in raw.items():
+        if key.startswith("warm_up.") and not key.startswith("warm_up.max_snoozes."):
+            prio = key[len("warm_up."):]
+            if prio in VALID_PRIORITIES:
+                warm_up[prio] = val
+    if not warm_up:
+        warm_up = None
+
+    warm_up_max_snoozes = {}
+    if isinstance(raw.get("warm_up_max_snoozes"), dict):
+        warm_up_max_snoozes = dict(raw["warm_up_max_snoozes"])
+    for key, val in raw.items():
+        if key.startswith("warm_up.max_snoozes."):
+            prio = key[len("warm_up.max_snoozes."):]
+            if prio in VALID_PRIORITIES:
+                warm_up_max_snoozes[prio] = val
+    if not warm_up_max_snoozes:
+        warm_up_max_snoozes = None
+
+    acquaintance_auto_upgrade = raw.get("acquaintance.auto_upgrade", raw.get("acquaintance_auto_upgrade", True))
+
     list_hide_acquaintances = _flat_or_raw(raw, "list.hide_acquaintances", "list_hide_acquaintances")
     list_sort_priority = _flat_or_raw(raw, "list.sort_priority", "list_sort_priority")
     list_sort_due_date = _flat_or_raw(raw, "list.sort_due_date", "list_sort_due_date")
@@ -142,6 +175,9 @@ def load_config(path: Path | None = None) -> Config:
         list_sort_priority=list_sort_priority,
         list_sort_due_date=list_sort_due_date,
         list_columns=list_columns,
+        warm_up=warm_up,
+        warm_up_max_snoozes=warm_up_max_snoozes,
+        acquaintance_auto_upgrade=acquaintance_auto_upgrade,
     )
 
 
@@ -219,6 +255,32 @@ def _validate(raw: Any, path: Path) -> None:
                     f"{path}: 'priority_order' contains invalid priority {p!r}"
                 )
 
+    for key, val in raw.items():
+        if key.startswith("warm_up."):
+            if key.startswith("warm_up.max_snoozes."):
+                prio = key[len("warm_up.max_snoozes."):]
+                if prio not in VALID_PRIORITIES:
+                    raise ConfigError(
+                        f"{path}: unknown priority {prio!r} in warm_up.max_snoozes"
+                    )
+                if not isinstance(val, int) or val < 0:
+                    raise ConfigError(
+                        f"{path}: warm_up.max_snoozes values must be non-negative integers, "
+                        f"got {val!r}"
+                    )
+            else:
+                prio = key[len("warm_up."):]
+                if prio not in VALID_PRIORITIES:
+                    raise ConfigError(
+                        f"{path}: unknown priority {prio!r} in {key!r}"
+                    )
+                if not isinstance(val, int):
+                    raise ConfigError(
+                        f"{path}: warm_up values must be integers, "
+                        f"got {type(val).__name__} for {key!r}"
+                    )
+
+    _validate_flat_bool("acquaintance.auto_upgrade", raw, path)
     _validate_flat_bool("list.hide_acquaintances", raw, path)
     _validate_flat_bool("list_hide_acquaintances", raw, path)
 
@@ -282,6 +344,18 @@ def save_config(cfg: Config, path: Path | None = None) -> None:
             for prio, days in cfg.snooze.items():
                 if days != DEFAULT_SNOOZE.get(prio):
                     payload[f"snooze.{prio}"] = days
+        if cfg.warm_up is not None:
+            for prio, days in cfg.warm_up.items():
+                DEFAULT_WARM_UP = {"acquaintance": 45, "casual": 15}
+                if days != DEFAULT_WARM_UP.get(prio):
+                    payload[f"warm_up.{prio}"] = days
+        if cfg.warm_up_max_snoozes is not None:
+            for prio, n in cfg.warm_up_max_snoozes.items():
+                DEFAULT_WARM_UP_MAX = {"acquaintance": 2, "casual": 3}
+                if n != DEFAULT_WARM_UP_MAX.get(prio):
+                    payload[f"warm_up.max_snoozes.{prio}"] = n
+        if cfg.acquaintance_auto_upgrade is not True:
+            payload["acquaintance.auto_upgrade"] = cfg.acquaintance_auto_upgrade
         if cfg.default_priority != DEFAULT_PRIORITY:
             payload["default_priority"] = cfg.default_priority
         if cfg.default_subcommand != DEFAULT_SUBCOMMAND:
@@ -320,3 +394,10 @@ def effective_snooze(cfg: Config, priority: str) -> int:
     if priority in DEFAULT_SNOOZE:
         return DEFAULT_SNOOZE[priority]
     raise InvalidPriorityError(f"unknown priority: {priority!r}")
+
+
+def effective_cadence_with_warm_up(cfg: Config, priority: str, state: ContactState) -> int:
+    wc = (cfg.warm_up or {}).get(priority)
+    if state.warm_up_consumed is False and wc is not None:
+        return wc
+    return effective_cadence(cfg, priority, None)

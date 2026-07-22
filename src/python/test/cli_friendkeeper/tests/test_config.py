@@ -12,6 +12,7 @@ from cli_friendkeeper.config import (
     DEFAULT_SUBCOMMAND,
     Config,
     effective_cadence,
+    effective_cadence_with_warm_up,
     effective_snooze,
     load_config,
     save_config,

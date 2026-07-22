@@ -3,7 +3,7 @@
 Usage:
     friend due [--priority <prio>] [--limit <N>] [--json]
 
-Parses flags, calls ``check_logic.select_due``, and prints a table
+Parses flags, calls ``check_logic.select_due_warm_up_aware``, and prints a table
 (or JSON) of the due contacts sorted by days-since-touched descending.
 """
 
@@ -13,7 +13,11 @@ import json
 
 import typer
 
-from cli_friendkeeper.check_logic import days_since_touched, due_date, select_due
+from cli_friendkeeper.check_logic import (
+    days_since_touched,
+    due_date,
+    select_due_warm_up_aware,
+)
 from cli_friendkeeper.ccli.ccli import Context
 from cli_friendkeeper.config import effective_cadence
 
@@ -58,7 +62,7 @@ def run(args: list[str], ctx: Context) -> int:
     states = {s.id: s for s in raw_states}
     today = ctx.clock.today()
 
-    due = select_due(contacts, states, today, ctx.config)
+    due = select_due_warm_up_aware(contacts, states, today, ctx.config)
 
     if priority_filter is not None:
         due = [c for c in due if c.priority == priority_filter]

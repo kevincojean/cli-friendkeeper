@@ -87,8 +87,11 @@ def run(args: list[str], ctx: object) -> int:
             )
             return 1
 
+        warm_up_just_consumed = state.warm_up_consumed is False
         state.last_touched = ctx.clock.today()  # type: ignore[attr-defined]
         state.touch_count += 1
+        if warm_up_just_consumed:
+            state.warm_up_consumed = True
         ctx.states.upsert(state)  # type: ignore[attr-defined]
 
     entry = LogEntry(
@@ -100,7 +103,12 @@ def run(args: list[str], ctx: object) -> int:
     )
     ctx.log.append(entry)  # type: ignore[attr-defined]
 
-    typer.echo(
-        f"Touched: {contact.name} (id: {contact_id})"
-    )
+    if warm_up_just_consumed:
+        typer.echo(
+            f"Touched: {contact.name} (id: {contact_id}) — warm-up consumed"
+        )
+    else:
+        typer.echo(
+            f"Touched: {contact.name} (id: {contact_id})"
+        )
     return 0

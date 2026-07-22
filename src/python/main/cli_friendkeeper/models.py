@@ -22,6 +22,7 @@ class Contact:
     cadence_days: int | None = None
     notes: str = ""
     added_at: date | None = None
+    auto_upgrade: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -52,6 +53,8 @@ class ContactState:
     name: str
     last_touched: date | None = None
     touch_count: int = 0
+    snooze_count: int = 0
+    warm_up_consumed: bool | None = None
     removed: bool = False
     removed_at: date | None = None
 
@@ -78,7 +81,7 @@ class ContactState:
 @dataclass
 class LogEntry:
     timestamp: datetime
-    action: Literal["add", "touch", "remove", "rebuild-state"]
+    action: Literal["add", "touch", "remove", "rebuild-state", "upgrade", "relegate"]
     id: str
     name: str
     payload: dict[str, Any] = field(default_factory=dict)

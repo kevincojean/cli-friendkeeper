@@ -124,7 +124,10 @@ def run(args: list[str], ctx: Any) -> int:
     ]
     today = ctx.clock.today()
     cadence = effective_cadence(ctx.config, contact.priority, contact.cadence_days)
-    state = ContactState(id=contact.id, name=contact.name)
+    warm_up_consumed = contact.priority not in ("acquaintance", "casual")
+    state = ContactState(id=contact.id, name=contact.name, warm_up_consumed=warm_up_consumed)
+    if ctx.states is not None:
+        ctx.states.upsert(state)
 
     headers: list[str] = []
     widths: list[int] = []

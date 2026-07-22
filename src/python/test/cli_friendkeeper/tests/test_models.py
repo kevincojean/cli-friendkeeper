@@ -151,10 +151,10 @@ class TestContactState:
         state = ContactState.from_dict(d)
         assert state.snooze_count == 0
 
-    def test_given_contact_state_default_when_created_then_warm_up_consumed_is_false(self) -> None:
-        """given ContactState() when created then warm_up_consumed defaults to False"""
+    def test_given_contact_state_default_when_created_then_warm_up_consumed_is_none(self) -> None:
+        """given ContactState() when created then warm_up_consumed defaults to None for backward compat"""
         state = ContactState(id="test-uuid-u1", name="user1")
-        assert state.warm_up_consumed is False
+        assert state.warm_up_consumed is None
 
     def test_given_contact_state_with_warm_up_consumed_when_to_dict_then_included(self) -> None:
         """given ContactState(warm_up_consumed=True) when to_dict then dict contains warm_up_consumed=True"""
@@ -168,11 +168,11 @@ class TestContactState:
         state = ContactState.from_dict(d)
         assert state.warm_up_consumed is True
 
-    def test_given_contact_state_dict_without_warm_up_consumed_when_from_dict_then_defaults_false(self) -> None:
-        """given {} without warm_up_consumed when from_dict then ContactState.warm_up_consumed=False (backward compat)"""
+    def test_given_contact_state_dict_without_warm_up_consumed_when_from_dict_then_defaults_none(self) -> None:
+        """given {} without warm_up_consumed when from_dict then ContactState.warm_up_consumed=None (backward compat)"""
         d = {"id": "test-uuid-u1", "name": "user1"}
         state = ContactState.from_dict(d)
-        assert state.warm_up_consumed is False
+        assert state.warm_up_consumed is None
 
     def test_given_contact_state_with_new_fields_when_round_trip_then_preserved(self) -> None:
         """given ContactState(snooze_count=2, warm_up_consumed=True) when to_dict→from_dict then fields preserved"""

@@ -55,6 +55,18 @@ class ContactRepo:
         contacts.sort(key=lambda c: c.name.lower())
         return contacts
 
+    def update(self, contact: Contact) -> Either[FriendError, None]:
+        existing = self._read_contacts()
+        new_list = [contact if c.id == contact.id else c for c in existing]
+        if all(c.id != contact.id for c in existing):
+            return Left(
+                ContactNotFoundError(
+                    f"Contact '{contact.id}' not found", contact_id=contact.id
+                )
+            )
+        self._write_contacts(new_list)
+        return Right(None)
+
     def remove(self, contact_id: str) -> Either[FriendError, None]:
         existing = self._read_contacts()
         filtered = [c for c in existing if c.id != contact_id]

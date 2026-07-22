@@ -194,8 +194,8 @@ class TestE2E:
         assert "Grace" in r.stdout
         assert "Heidi" not in r.stdout
 
-    def test_given_acquaintance_contact_when_due_then_never_shown(self, tmp_path: Path) -> None:
-        """given acquaintance contact when due then never shown as due."""
+    def test_given_acquaintance_contact_when_due_then_shown_in_warm_up(self, tmp_path: Path) -> None:
+        """given acquaintance contact when due then shown in warm-up period."""
         env = _env(tmp_path)
 
         r = _cli(
@@ -206,12 +206,12 @@ class TestE2E:
         )
         assert r.returncode == 0, r.stderr
 
-        # Never touched — normally would be due, but not for acquaintance
+        # Never touched — shown during warm-up period (warm-up cadence=45)
         r = _cli("due", env=env)
         assert r.returncode == 0, r.stderr
-        assert "Nothing due." in r.stdout or "Ivan" not in r.stdout
+        assert "Ivan" in r.stdout
 
-        # Should still appear in list with --acquaintances flag
+        # Should also appear in list with --acquaintances flag
         r = _cli("list", "--acquaintances", env=env)
         assert r.returncode == 0, r.stderr
         assert "Ivan" in r.stdout

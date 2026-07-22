@@ -217,4 +217,4 @@ class TestStateRepoWarmUp:
         assert not got.is_left()
         state = got.value
         assert state.snooze_count == 0
-        assert state.warm_up_consumed is False
+        assert state.warm_up_consumed is None
