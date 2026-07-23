@@ -7,6 +7,7 @@ from typing import Any
 from cli_friendkeeper.clock import FixedClock
 from cli_friendkeeper.models import Contact
 from cli_friendkeeper.repository import ContactRepo, LogRepo, StateRepo
+from cli_friendkeeper.ccli.task.run_remove import _resolve_id
 from conftest import FakeStore
 
 
@@ -171,3 +172,110 @@ def test_given_already_removed_contact_when_remove_then_returns_one(
 
     assert rc2 == 1
     assert "not found" in captured2.err
+
+
+def test_given_partial_id_when_exact_match_then_resolves_to_that_contact() -> None:
+    """given partial id that is an exact match when _resolve_id then returns that contact."""
+    contacts = [
+        Contact(id="uuid-alice-long", name="Alice"),
+        Contact(id="uuid-bob", name="Bob"),
+    ]
+    result = _resolve_id("uuid-bob", contacts)
+
+    assert result.is_right()
+    contact, resolved = result.value
+    assert contact.name == "Bob"
+    assert resolved == "uuid-bob"
+
+
+def test_given_partial_id_when_unique_prefix_then_resolves() -> None:
+    """given partial id that is a unique prefix when _resolve_id then resolves to the full id."""
+    contacts = [
+        Contact(id="aaa-bbb-ccc", name="Alice"),
+        Contact(id="ddd-eee-fff", name="Bob"),
+    ]
+    result = _resolve_id("aaa", contacts)
+
+    assert result.is_right()
+    contact, resolved = result.value
+    assert contact.name == "Alice"
+    assert resolved == "aaa-bbb-ccc"
+
+
+def test_given_partial_id_when_ambiguous_prefix_then_returns_error(capsys: Any, tmp_path: Path) -> None:
+    """given partial id matching multiple contacts when remove then returns 1 with ambiguity message."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    log = LogRepo(store, data_dir)
+    clock = FixedClock(date(2026, 7, 20))
+    ctx = FakeContext(contacts, states, log, clock, data_dir)
+
+    contacts._write_contacts([
+        Contact(id="aaa-bbb-ccc", name="Alice"),
+        Contact(id="aaa-eee-fff", name="Aaron"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_remove import run
+
+    rc = run(["aaa", "--force"], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "matches 2 contacts" in captured.err
+    assert "Alice" in captured.err
+    assert "Aaron" in captured.err
+    assert "Specify more digits" in captured.err
+
+
+def test_given_partial_id_when_no_match_then_returns_not_found(capsys: Any, tmp_path: Path) -> None:
+    """given partial id matching no contacts when remove then returns 1 with not found."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    log = LogRepo(store, data_dir)
+    clock = FixedClock(date(2026, 7, 20))
+    ctx = FakeContext(contacts, states, log, clock, data_dir)
+
+    contacts._write_contacts([
+        Contact(id="aaa-bbb-ccc", name="Alice"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_remove import run
+
+    rc = run(["zzz", "--force"], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 1
+    assert "not found" in captured.err
+
+
+def test_given_partial_id_unique_when_remove_with_force_then_removes_contact(capsys: Any, tmp_path: Path) -> None:
+    """given unique partial id when remove with --force then contact is removed."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    log = LogRepo(store, data_dir)
+    clock = FixedClock(date(2026, 7, 20))
+    ctx = FakeContext(contacts, states, log, clock, data_dir)
+
+    contacts._write_contacts([
+        Contact(id="uuid-alice", name="Alice", email="alice@example.com"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_remove import run
+
+    rc = run(["uuid-al", "--force"], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "Alice" in captured.out
+    assert contacts.all() == []
+
+    state_result = states.get("uuid-alice")
+    assert state_result.is_right()
+    state = state_result.value
+    assert state.removed is True

@@ -57,6 +57,7 @@ def run(args: list[str], ctx: Context) -> int:
             i += 2
         elif args[i] == "--all":
             show_all = True
+            show_acquaintances = True
             i += 1
         elif args[i] == "--json":
             as_json = True

@@ -138,6 +138,31 @@ def test_given_all_flag_when_run_list_then_removed_contacts_are_shown(capsys: An
     assert "Bob" in captured.out
 
 
+def test_given_all_flag_when_run_list_then_acquaintances_are_shown(capsys: Any, tmp_path: Path) -> None:
+    """given --all when run_list then acquaintances are shown (not just removed)."""
+    store = FakeStore()
+    data_dir = tmp_path
+    contacts = ContactRepo(store, data_dir)
+    states = StateRepo(store, data_dir)
+    clock = _clock(date(2026, 7, 20))
+    config = Config(cadence=DEFAULT_CADENCE)
+    ctx = FakeContext(contacts, states, clock, config)
+
+    contacts._write_contacts([
+        Contact(id="uuid-alice", name="Alice", priority="acquaintance"),
+        Contact(id="uuid-bob", name="Bob", priority="casual"),
+    ])
+
+    from cli_friendkeeper.ccli.task.run_list import run
+
+    rc = run(["--all"], ctx)
+    captured = capsys.readouterr()
+
+    assert rc == 0
+    assert "Alice" in captured.out
+    assert "Bob" in captured.out
+
+
 def test_given_json_flag_when_run_list_then_returns_valid_json_with_expected_fields(capsys: Any, tmp_path: Path) -> None:
     """given --json when run_list then valid JSON with expected fields."""
     import json

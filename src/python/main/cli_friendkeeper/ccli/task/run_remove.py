@@ -5,14 +5,20 @@ Usage:
 
 Removes *contact* from friends.jsonl and records a tombstone in state.jsonl.
 Without ``--force`` the user is prompted for confirmation.
+
+The *id* argument accepts a unique ID prefix — if the prefix matches exactly
+one contact it is resolved automatically; otherwise the command refuses and
+asks for more digits.
 """
 
 from __future__ import annotations
 
+from pymonad.either import Either, Left, Right
+
 import typer
 
-from cli_friendkeeper.errors import ContactNotFoundError
-from cli_friendkeeper.models import ContactState, LogEntry
+from cli_friendkeeper.errors import ContactNotFoundError, FriendError
+from cli_friendkeeper.models import Contact, ContactState, LogEntry
 from cli_friendkeeper.store import flock_exclusive
 
 
@@ -21,6 +27,28 @@ def _print_usage() -> None:
     typer.echo(
         "Usage: friend remove <id> [--force]",
         err=True,
+    )
+
+
+def _resolve_id(raw: str, contacts: list[Contact]) -> Either[FriendError, tuple[Contact, str]]:
+    """Resolve *raw* to a ``(contact, full_id)`` pair.
+
+    Exact match is tried first; if that fails the input is treated as a
+    prefix.  Returns ``Right`` only when the prefix matches **exactly one**
+    contact, otherwise a descriptive error.
+    """
+    for c in contacts:
+        if c.id == raw:
+            return Right((c, c.id))
+    matches = [c for c in contacts if c.id.startswith(raw)]
+    if len(matches) == 1:
+        c = matches[0]
+        return Right((c, c.id))
+    if not matches:
+        return Left(ContactNotFoundError(f"Contact '{raw}' not found", contact_id=raw))
+    names = ", ".join(f"'{c.name}' ({c.id[:8]})" for c in matches)
+    return Left(
+        FriendError(f"'{raw}' matches {len(matches)} contacts: {names}. Specify more digits.")
     )
 
 
@@ -53,16 +81,13 @@ def run(args: list[str], ctx: object) -> int:
         typer.echo("Error: contact id is required", err=True)
         return 1
 
-    contact_result = ctx.contacts.get(contact_id)  # type: ignore[attr-defined]
-    if contact_result.is_left():
-        err = contact_result.monoid[0]
-        if isinstance(err, ContactNotFoundError):
-            typer.echo(f"Error: contact '{contact_id}' not found", err=True)
-        else:
-            typer.echo(f"Error: {err}", err=True)
+    resolution = _resolve_id(contact_id, ctx.contacts.all())  # type: ignore[attr-defined]
+    if resolution.is_left():
+        err = resolution.monoid[0]
+        typer.echo(f"Error: {err}", err=True)
         return 1
 
-    contact = contact_result.value
+    contact, contact_id = resolution.value
 
     if not force:
         answer = input(f"Remove '{contact.name}' (id: {contact_id})? [y/N] ").strip().lower()
